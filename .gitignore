@@ -1,0 +1,9 @@
+# Local Claude Code settings (do not publish)
+.claude/
+
+# Rulebook source — kept local, not published
+hojo_suiden_rulebook.docx
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
