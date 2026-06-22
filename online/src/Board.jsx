@@ -302,8 +302,8 @@ function ActionPanel({ G, me, moves, events }) {
 }
 
 function hireCostFor(currentWorkers, n) {
-  // n人雇う総コスト（逓増: workers=3→4: 4俵, 4→5: 6俵, 5→6: 8俵...）
-  let cost = 0; for (let i = 0; i < n; i++) cost += 2 + 2 * (currentWorkers + i - 1);
+  // n人雇う総コスト（逓増: 3→4: 4俵, 4→5: 5俵, 5→6: 6俵...）
+  let cost = 0; for (let i = 0; i < n; i++) cost += currentWorkers + i + 1;
   return cost;
 }
 

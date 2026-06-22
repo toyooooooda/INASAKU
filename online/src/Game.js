@@ -270,8 +270,8 @@ export const HojoSuiden = {
       if (G.stage !== 'yearEnd') return INVALID_MOVE;
       const hc = clamp(hireCount | 0, 0, 3);
       if (hc > 0) {
-        // 逓増：現在の働き手数に応じてコスト増加（3→4: 4俵, 4→5: 6俵, 5→6: 8俵, 6→7: 10俵）
-        let cost = 0; for (let n = 0; n < hc; n++) cost += 2 + 2 * (p.workers + n - 1);
+        // 逓増：3→4人目:4俵, 4→5:5俵, 5→6:6俵... (workers+1 per person)
+        let cost = 0; for (let n = 0; n < hc; n++) cost += p.workers + n + 1;
         if (totalRiceCount(p) >= cost) { payRice(p, cost); p.workers += hc; addLog(G, `雇用：${p.name} +${hc}人（-${cost}俵）`); }
       }
       if (doRankUp && p.rank < RANK_COSTS.length) {
