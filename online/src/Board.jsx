@@ -370,6 +370,16 @@ export function Board({ G, ctx, moves, events, playerID }) {
   const me = playerID != null ? G.players[Number(playerID)] : null;
   const myTurn = playerID != null && ctx.currentPlayer === playerID;
 
+  // URL の &name= を自分の最初の手番に自動同期
+  const urlName = new URLSearchParams(window.location.search).get('name');
+  const namesynced = useRef(false);
+  useEffect(() => {
+    if (myTurn && urlName && !namesynced.current) {
+      namesynced.current = true;
+      moves.setName(urlName);
+    }
+  }, [myTurn]);
+
   // ラウンドキーが変わるたびに天候オーバーレイを表示（クライアント個別・サーバ通信なし）
   const roundKey = `${G.year}-${G.seasonIdx}-${G.roundInSeason}`;
   const prevRoundKey = useRef(null);

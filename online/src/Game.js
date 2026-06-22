@@ -274,5 +274,13 @@ export const HojoSuiden = {
       addEvent(G, 'year_end_decision', playerID, { hireCount: hc, rankUp: !!doRankUp });
       events.endTurn();
     },
+
+    // 名前を設定（URL の &name= から自動呼び出し）
+    setName: ({ G, playerID }, name) => {
+      const p = G.players[Number(playerID)];
+      if (!p) return INVALID_MOVE;
+      const trimmed = String(name || '').trim().slice(0, 16);
+      if (trimmed) p.name = trimmed;
+    },
   },
 };
