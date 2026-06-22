@@ -59,8 +59,9 @@ export function createPlayer(i, name) {
     rice: [{ quality: 1, count: 8 }, { quality: 2, count: 0 }, { quality: 3, count: 0 }],
     reputation: 0, rank: 0, landLimit: 4,
     workers: 3, workersUsed: 0,
-    tools: { plow: false, ox: false, barn: false },
+    tools: { plow: false, ox: false, barn: false, canal: false, tank: false },
     seedlings: 0, compost: 0,
+    waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,
     fields: [createField(`f${i}_0`), createField(`f${i}_1`)],
@@ -122,6 +123,18 @@ function sweepMaturity(G) {
   }));
 }
 
+// 天候・ダイスから水プールの補正を計算
+function calcWaterPool(numPlayers, card, effects) {
+  const base = numPlayers + 1;
+  let bonus = 0;
+  effects.forEach((e) => {
+    if (e.type === 'rain') bonus += 1;
+    else if (e.type === 'sun') bonus -= 1;
+  });
+  const cardBonus = { heavy_rain: 3, gentle_rain: 1, drought: -2 }[card.effect] ?? 0;
+  return Math.max(0, base + bonus + cardBonus);
+}
+
 export function drawAndApplyWeather(G, random) {
   G.cloudyThisRound = false;
   if (!G.weatherDeck || G.weatherDeck.length === 0) G.weatherDeck = random.Shuffle([...WEATHER_CARDS]);
@@ -129,11 +142,27 @@ export function drawAndApplyWeather(G, random) {
   const dice = [random.Die(6), random.Die(6)];
   const effects = dice.map(diceEffect);
   G.weather = { card, dice, effects };
-  addLog(G, `天候【${card.name}】${card.desc} ／ ${effects.map((e, i) => `${e.icon}(${dice[i]})`).join(' ')}`);
+
+  // 水プールを設定
+  G.waterPool = calcWaterPool(G.players.length, card, effects);
+
+  // 水桶を持つプレイヤーの蓄積に+2補充（上限6）
+  G.players.forEach((p) => {
+    if (p.tools.tank) p.waterReserve = Math.min((p.waterReserve || 0) + 2, 6);
+  });
+
+  addLog(G, `天候【${card.name}】${card.desc} ／ ${effects.map((e, i) => `${e.icon}(${dice[i]})`).join(' ')} ／ 水プール${G.waterPool}`);
   effects.forEach((e) => applyDie(G, e.type));
   applyCardEffect(G, card);
-  sweepMaturity(G); // 成長が上限に達していれば即成熟
-  addEvent(G, 'weather', null, { card: card.name, effect: card.effect, dice: [...dice] });
+  sweepMaturity(G);
+  addEvent(G, 'weather', null, { card: card.name, effect: card.effect, dice: [...dice], waterPool: G.waterPool });
+}
+
+// 水を引く際の水源を決定してプール/水桶を消費。戻り値: 'pool'|'tank'|'empty'
+export function consumeWaterSource(G, p) {
+  if (G.waterPool > 0) { G.waterPool -= 1; return 'pool'; }
+  if (p.waterReserve > 0) { p.waterReserve -= 1; return 'tank'; }
+  return 'empty';
 }
 
 // ===== 成長フェーズ =====
@@ -167,6 +196,10 @@ export function doGrowthPhase(G) {
 // 成長 → 季節/ラウンド進行。年が終われば年度末の自動処理を実行し stage='yearEnd'。
 export function endOfRound(G, random) {
   doGrowthPhase(G);
+  // 毎ラウンド先頭プレイヤーをローテーション
+  if (G.roundPlayOrder) {
+    G.roundPlayOrder = [...G.roundPlayOrder.slice(1), G.roundPlayOrder[0]];
+  }
   if (G.roundInSeason === 0) {
     G.roundInSeason = 1;
   } else {
@@ -174,7 +207,7 @@ export function endOfRound(G, random) {
     if (G.seasonIdx < 3) {
       G.seasonIdx += 1;
     } else {
-      runYearEndAuto(G, random); // 租→保管→ネズミ→維持
+      runYearEndAuto(G, random);
       G.stage = 'yearEnd';
       G.yearEndPlayerIdx = 0;
     }

@@ -6,7 +6,7 @@ import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField,
-  drawAndApplyWeather, endOfRound, finishYearEnd,
+  drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource,
 } from './logic.js';
 
 const ok = (cond) => (cond ? undefined : INVALID_MOVE);
@@ -24,10 +24,13 @@ export const HojoSuiden = {
   maxPlayers: 4,
 
   setup: ({ ctx }) => {
+    const order = [...Array(ctx.numPlayers).keys()].map(String);
     const G = {
       stage: 'action',
       year: 1, seasonIdx: 0, roundInSeason: 0,
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
+      waterPool: 0,
+      roundPlayOrder: order,
       yearEndPlayerIdx: 0, gameOver: false, finalScores: null,
       players: [], log: ['=== 豊穣の水田（オンライン版）開始 ==='],
       events: [], yearSnapshots: [],
@@ -37,6 +40,11 @@ export const HojoSuiden = {
   },
 
   turn: {
+    order: {
+      first: () => 0,
+      next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
+      playOrder: ({ G }) => G.roundPlayOrder,
+    },
     onBegin: ({ G, ctx, random }) => {
       if (G.stage !== 'action') return;
       // ラウンド先頭で天候を引いて全員に適用
@@ -85,16 +93,20 @@ export const HojoSuiden = {
       addEvent(G, 'plant', playerID, { variety, cost: seedCost, useSeedling: useNae, tilled: !!tilledBonus });
     },
 
-    // ---- 水を引く（通年・コストなし）----
+    // ---- 水を引く（通年）プール消費→+2、プール0→+1（弱体）----
     irrigate: ({ G, playerID }, fieldId) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'action') return INVALID_MOVE;
       if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
       const f = p.fields.find((x) => x.id === fieldId);
       if (!f) return INVALID_MOVE;
-      f.water = clamp(f.water + 2, 0, 5); p.workersUsed += 1;
-      addLog(G, `${p.name}：水を引く →水位${f.water}`);
-      addEvent(G, 'irrigate', playerID, { water: f.water });
+      const src = consumeWaterSource(G, p);
+      const gain = src !== 'empty' ? 2 : 1;
+      f.water = clamp(f.water + gain, 0, 5);
+      p.workersUsed += 1;
+      const note = src === 'pool' ? '' : src === 'tank' ? '（水桶）' : '（プール不足・+1）';
+      addLog(G, `${p.name}：水を引く${note} +${gain} →水位${f.water}　プール残${G.waterPool}`);
+      addEvent(G, 'irrigate', playerID, { water: f.water, src });
     },
 
     // ---- 水路で引く（水路ツール装備時・働き手1で2か所）----
@@ -106,10 +118,12 @@ export const HojoSuiden = {
       const f1 = p.fields.find((x) => x.id === fieldId1);
       const f2 = p.fields.find((x) => x.id === fieldId2);
       if (!f1 || !f2 || fieldId1 === fieldId2) return INVALID_MOVE;
-      f1.water = clamp(f1.water + 2, 0, 5);
-      f2.water = clamp(f2.water + 2, 0, 5);
+      const src1 = consumeWaterSource(G, p);
+      const src2 = consumeWaterSource(G, p);
+      f1.water = clamp(f1.water + (src1 !== 'empty' ? 2 : 1), 0, 5);
+      f2.water = clamp(f2.water + (src2 !== 'empty' ? 2 : 1), 0, 5);
       p.workersUsed += 1;
-      addLog(G, `${p.name}：水路で引く →田${p.fields.indexOf(f1) + 1}水位${f1.water}・田${p.fields.indexOf(f2) + 1}水位${f2.water}`);
+      addLog(G, `${p.name}：水路で引く →田${p.fields.indexOf(f1)+1}水位${f1.water}・田${p.fields.indexOf(f2)+1}水位${f2.water}　プール残${G.waterPool}`);
       addEvent(G, 'irrigateTwo', playerID, {});
     },
 

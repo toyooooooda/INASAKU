@@ -103,6 +103,7 @@ function PlayerPanel({ p, isCurrent, isMe }) {
         {p.tools.ox && <span className="tag">牛</span>}
         {p.tools.barn && <span className="tag">倉</span>}
         {p.tools.canal && <span className="tag">水路</span>}
+        {p.tools.tank && <span className="tag">水桶🪣{p.waterReserve > 0 ? `×${p.waterReserve}` : ''}</span>}
         {p.seedlings > 0 && <span className="tag">苗×{p.seedlings}</span>}
         {p.compost > 0 && <span className="tag">堆肥×{p.compost}</span>}
         {p.donatedThisYear && <span className="tag">献上済</span>}
@@ -417,6 +418,13 @@ function WeatherOverlay({ G, onClose }) {
               {row.detail && <span className="net-detail">（{row.detail}）</span>}
             </div>
           ))}
+          {G.waterPool !== undefined && (
+            <div className="weather-net-row">
+              <span className="net-icon">🪣</span>
+              <span className="net-main">水プール <b>{G.waterPool}</b></span>
+              <span className="net-detail">（先取り注意・0になると水+1に弱体）</span>
+            </div>
+          )}
         </div>
 
         <button className="weather-ok" onClick={onClose}>確認</button>
@@ -476,6 +484,7 @@ export function Board({ G, ctx, moves, events, playerID }) {
       {G.weather && G.stage === 'action' && (
         <div className="weather" onClick={() => setShowWeather(true)} title="クリックで再表示" style={{ cursor: 'pointer' }}>
           天候【{G.weather.card.name}】{G.weather.effects.map((e, i) => `${e.icon}${G.weather.dice[i]}`).join(' ')}
+          　🪣 水プール <b style={{ color: G.waterPool === 0 ? '#e74c3c' : G.waterPool <= 1 ? '#e67e22' : '#2980b9' }}>{G.waterPool}</b>
         </div>
       )}
 

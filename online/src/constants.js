@@ -20,6 +20,7 @@ export const TOOLS = {
   ox:    { name: '牛',   riceCost: 16, repCost: 6, desc: '開墾+1 / 植付-1俵' },
   barn:  { name: '倉',   riceCost: 6,  repCost: 3, desc: '保管半減 / ネズミ被害1/4' },
   canal: { name: '水路', riceCost: 10, repCost: 4, desc: '働き手1で2か所同時に水を引く' },
+  tank:  { name: '水桶', riceCost: 4,  repCost: 2, desc: '毎R水+2蓄積（上限6）/ プール不足時でも水+2' },
 };
 
 export const WEATHER_CARDS = [
