@@ -1,0 +1,96 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", "Hiragino Sans", sans-serif; background: #fdf6e3; color: #333; }
+.app { max-width: 900px; margin: 0 auto; padding: 8px; }
+.hint { font-size: 12px; color: #888; line-height: 1.5; }
+.hint code { background: #eee; padding: 0 4px; border-radius: 3px; }
+
+.wrap { max-width: 900px; margin: 0 auto; }
+header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+.weather { background: #e6f0fa; border: 1px solid #b9d6f2; border-radius: 8px; padding: 6px 10px; margin: 8px 0; font-size: 13px; }
+
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin: 8px 0; }
+.panel { border: 1px solid #ddd; border-radius: 8px; background: #fff; padding: 8px; font-size: 12px; }
+.panel.current { border-color: #d9a441; box-shadow: 0 0 0 2px #f0d39a; }
+.panel.me { background: #fffdf5; }
+.phead { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.rank { color: #888; }
+.stats { display: flex; gap: 10px; font-weight: bold; }
+.rice { color: #666; margin: 2px 0; }
+.fields, .badges { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chip { border: 1px solid #cdb; background: #f4f8ef; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+.chip.mature { background: #fdebc8; border-color: #e6c074; }
+.chip.planted { background: #eaf6ea; }
+.tag { background: #eee; border-radius: 4px; padding: 0 4px; font-size: 11px; color: #777; }
+
+/* 田んぼカード */
+.field-section-label { font-size: 11px; color: #999; margin: 6px 0 3px; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 5px; margin-bottom: 6px; }
+.field-card {
+  border: 1px solid #ddd; border-radius: 7px; padding: 6px 7px;
+  font-size: 11px; background: #fafafa;
+}
+.field-card--planted { background: #f0f8f0; border-color: #9ecb9e; }
+.field-card--mature  { background: #fff8e8; border-color: #d9a441; }
+.field-card.overripe { border-color: #e74c3c; background: #fff5f5; }
+.field-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.field-card-num { font-weight: bold; color: #555; }
+.field-badge { border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: bold; }
+.badge--empty   { background: #eee; color: #888; }
+.badge--planted { background: #c8e6c8; color: #2e7d32; }
+.badge--mature  { background: #ffe0a0; color: #8a5000; }
+.field-variety { display: flex; gap: 4px; align-items: center; margin-bottom: 3px; }
+.field-quality { font-size: 10px; font-weight: bold; }
+.field-fert-icons { font-size: 10px; }
+.field-growth { margin-bottom: 3px; }
+.field-growth-text { font-size: 10px; color: #555; display: block; margin-bottom: 2px; }
+.growth-bar-wrap { display: flex; gap: 2px; }
+.growth-pip { width: 10px; height: 6px; border-radius: 2px; }
+.field-water-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+.field-water-num { font-size: 10px; color: #555; min-width: 18px; }
+.water-bar-wrap { display: flex; gap: 2px; align-items: center; }
+.water-pip { width: 7px; height: 7px; border-radius: 50%; }
+.water-label { font-size: 9px; margin-left: 3px; font-weight: bold; }
+
+.control { background: #f3fbf3; border: 1px solid #cfe6cf; border-radius: 8px; padding: 10px; margin: 8px 0; min-height: 60px; }
+.act p { margin: 4px 0; font-size: 13px; }
+.menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+button { cursor: pointer; border: 1px solid #bbb; background: #fff; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+button:hover:not(:disabled) { background: #f0f0f0; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.on { background: #d9a441; color: #fff; border-color: #b9842a; }
+button.back { margin-top: 8px; border: none; background: none; color: #888; text-decoration: underline; }
+button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; border-color: #3a6f3a; font-weight: bold; padding: 8px; }
+.act button { margin: 2px; }
+.buyrow { display: flex; gap: 6px; align-items: center; margin: 4px 0; font-size: 12px; }
+
+.log { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 8px; font-size: 11px; color: #555; max-height: 200px; overflow-y: auto; }
+.log div { padding: 1px 0; }
+
+/* 天候オーバーレイ */
+.weather-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.weather-modal {
+  background: #fffdf0; border-radius: 16px; padding: 28px 36px;
+  max-width: 420px; width: 92%; text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.weather-season { font-size: 12px; color: #999; margin-bottom: 6px; }
+.weather-card-name { font-size: 30px; font-weight: bold; margin: 4px 0 12px; color: #5a3a00; }
+.weather-dice { display: flex; justify-content: center; gap: 16px; margin-bottom: 16px; }
+.die { font-size: 20px; background: #fff; border: 2px solid #d9c07a; border-radius: 10px; padding: 6px 18px; }
+
+.weather-net-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.weather-net {
+  background: #fff8e8; border: 1px solid #e8d79a; border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 20px; text-align: left;
+}
+.weather-net-row { display: flex; align-items: baseline; gap: 6px; padding: 4px 0; font-size: 14px; }
+.net-icon { font-size: 18px; min-width: 24px; text-align: center; }
+.net-main { font-weight: bold; color: #333; }
+.net-detail { font-size: 12px; color: #888; }
+
+.weather-ok { font-size: 15px; padding: 10px 44px; background: #8d6e3a; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.weather-ok:hover { background: #6e5228; }

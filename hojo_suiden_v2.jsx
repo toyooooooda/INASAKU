@@ -38,7 +38,7 @@ const WEATHER_CARDS = [
   { name: "晴れ",       effect: "none",         desc: "通常の天気" },
   { name: "晴れ",       effect: "none",         desc: "通常の天気" },
   { name: "曇り",       effect: "cloudy",       desc: "全田：水位変化なし（蒸発しない）" },
-  { name: "台風",       effect: "typhoon",      desc: "全員：俵-2" },
+  { name: "台風",       effect: "typhoon",      desc: "全田：品質-1（立ち稲が傷む）" },
   { name: "冷夏",       effect: "cool_summer",  desc: "夏のみ：全田 成長-1" },
   { name: "早霜",       effect: "early_frost",  desc: "秋のみ：晩稲 成長-2" },
   { name: "大雪",       effect: "heavy_snow",   desc: "冬のみ：次の春 -1行動" },
@@ -60,15 +60,18 @@ function diceEffect(d) {
 }
 
 const VARIETIES = {
-  早稲: { requiredGrowth: 2, baseQuality: 1, cost: 1, harvestMin: 2, harvestMax: 3, desc: "2R・並・1俵・収穫2〜3" },
-  中稲: { requiredGrowth: 3, baseQuality: 1, cost: 2, harvestMin: 3, harvestMax: 4, desc: "3R・並〜上質・2俵・収穫3〜4" },
-  晩稲: { requiredGrowth: 4, baseQuality: 2, cost: 2, harvestMin: 4, harvestMax: 5, desc: "4R・上質〜特上・2俵・収穫4〜5" },
+  野良稲: { requiredGrowth: 3, baseQuality: 1, maxQuality: 1, cost: 0, harvestMin: 2, harvestMax: 2, desc: "3R・並どまり・無料・収穫2（金欠時の保険）" },
+  早稲: { requiredGrowth: 2, baseQuality: 1, maxQuality: 1, cost: 1, harvestMin: 3, harvestMax: 4, desc: "2R・並どまり・1俵・収穫3〜4（速い量産型）" },
+  中稲: { requiredGrowth: 3, baseQuality: 1, maxQuality: 2, cost: 2, harvestMin: 3, harvestMax: 4, desc: "3R・並〜上質・2俵・収穫3〜4（平均型）" },
+  晩稲: { requiredGrowth: 4, baseQuality: 2, maxQuality: 3, cost: 2, harvestMin: 2, harvestMax: 3, desc: "4R・上質〜特上・2俵・収穫2〜3（少量高品質型）" },
 };
 
 const QUALITY_LABEL = ["", "並", "上質", "特上"];
 const RANK_LABELS = ["平民", "小名", "大名", "公家"];
 // 位階昇進コスト（評判）：位階0→1=3, 1→2=6, 2→3=10
 const RANK_COSTS = [3, 6, 10];
+// ネズミの大量発生：レア（年2以降・各年20%）・ゲーム1回まで・甚大な被害
+const RAT_OUTBREAK_CHANCE = 0.2;
 
 // 水位 → 成長修正値（-99=洪水流出）
 function waterMod(water) {
@@ -91,7 +94,7 @@ function shuffle(arr) {
 }
 
 function createField(id) {
-  return { id, status: "empty", variety: null, growth: 0, requiredGrowth: 0, quality: 1, water: 2, fertilized: false };
+  return { id, status: "empty", variety: null, growth: 0, requiredGrowth: 0, quality: 1, water: 2, fertilized: false, growthFertilized: false, overripe: 0, tilled: false };
 }
 
 function createGame(playerNames) {
@@ -102,11 +105,14 @@ function createGame(playerNames) {
     workers: 3, workersUsed: 0,
     tools: { plow: false, ox: false, barn: false },
     donatedThisYear: false,
+    strawworkThisYear: false,
+    seedlings: 0,
+    compost: 0,
     penaltyNextSpring: 0,
-    landLimit: 2,
+    landLimit: 4,
     fields: [createField(`f${i}_0`), createField(`f${i}_1`)],
-    // 荒れ地2枚：位階1（+2枚）まで開墾で埋められる
-    wildlands: [{ id: `w${i}_0`, gauge: 0 }, { id: `w${i}_1`, gauge: 0 }],
+    // 初期荒れ地4枚：昇進しなくても開墾で田を増やせる余裕を持たせる
+    wildlands: [{ id: `w${i}_0`, gauge: 0 }, { id: `w${i}_1`, gauge: 0 }, { id: `w${i}_2`, gauge: 0 }, { id: `w${i}_3`, gauge: 0 }],
   }));
 
   return {
@@ -123,6 +129,7 @@ function createGame(playerNames) {
     // ── プレイデータ記録 ──
     gameId: `g${Date.now()}`,
     playerCount: playerNames.length,
+    ratOutbreakDone: false,
     events: [],        // 構造化イベントログ
     yearSnapshots: [], // 年度末ごとの全プレイヤー状態
     exportData: null,  // doEndGame で構築
@@ -134,14 +141,12 @@ function createGame(playerNames) {
 function applyCardEffect(g, card) {
   switch (card.effect) {
     case "typhoon":
-      g.players.forEach(p => {
-        let left = 2;
-        for (let i = 0; i < 3 && left > 0; i++) {
-          const t = Math.min(left, p.rice[i].count);
-          p.rice[i].count -= t; left -= t;
+      g.players.forEach(p => p.fields.forEach(f => {
+        if ((f.status === "planted" || f.status === "mature") && f.quality > 1) {
+          f.quality -= 1;
         }
-        addLog(g, `${p.name}：台風 俵-${2 - left}`);
-      });
+      }));
+      addLog(g, "台風：植え付け中・成熟の全田 品質-1");
       break;
     case "cool_summer":
       if (g.seasonIdx === 1) {
@@ -261,6 +266,14 @@ function doGrowthPhase(g) {
       }
       if (f.status === "mature") {
         f.water = clamp(f.water - evaporate, 0, 5);
+        // 収穫せず放置すると傷んで品質が落ちる（2ラウンドごとに-1、並まで）
+        f.overripe = (f.overripe || 0) + 1;
+        if (f.overripe >= 2 && f.quality > 1) {
+          f.quality -= 1;
+          f.overripe = 0;
+          addLog(g, `${p.name}の${f.variety}が傷んで品質低下（→${QUALITY_LABEL[f.quality]}）`);
+          addEvent(g, "overripe", p.id, { variety: f.variety, quality: f.quality });
+        }
         return;
       }
       // planted
@@ -301,37 +314,37 @@ function executeAction(g, playerIdx, action) {
   const p = g.players[playerIdx];
 
   if (action.type === "plant") {
-    const { fieldId, variety } = action;
+    const { fieldId, variety, useSeedling } = action;
     const f = p.fields.find(x => x.id === fieldId);
     const def = VARIETIES[variety];
     if (!f || f.status !== "empty") return;
     const seedCost = Math.max(0, def.cost - (p.tools.ox ? 1 : 0)); // 牛：植え付けコスト-1
     if (totalRiceCount(p) < seedCost) { addLog(g, `${p.name}：俵不足`); return; }
     payRice(p, seedCost);
+    const useNae = !!useSeedling && p.seedlings > 0; // 育苗：成長+1で開始
+    const tilledBonus = f.tilled ? 1 : 0;            // 土づくり：次作の品質+1
     f.status = "planted";
     f.variety = variety;
-    f.growth = 0;
+    f.growth = useNae ? 1 : 0;
     f.requiredGrowth = def.requiredGrowth;
-    f.quality = def.baseQuality;
+    f.quality = clamp(def.baseQuality + tilledBonus, 1, def.maxQuality);
     f.fertilized = false;
+    f.growthFertilized = false;
+    f.tilled = false;
+    if (useNae) p.seedlings -= 1;
     p.workersUsed += 1;
-    addLog(g, `${p.name}：${variety}を植え付け（-${seedCost}俵${p.tools.ox && def.cost > 0 ? "・牛割引" : ""}）`);
-    addEvent(g, "plant", p.id, { variety, cost: seedCost, oxDiscount: p.tools.ox && def.cost > 0 });
+    addLog(g, `${p.name}：${variety}を植え付け（-${seedCost}俵${p.tools.ox && def.cost > 0 ? "・牛割引" : ""}${useNae ? "・苗で成長+1" : ""}${tilledBonus ? "・耕地で品質+1" : ""}）`);
+    addEvent(g, "plant", p.id, { variety, cost: seedCost, useSeedling: useNae, tilled: tilledBonus > 0 });
   }
 
   if (action.type === "irrigate") {
-    const { fieldId, payment } = action;
+    const { fieldId } = action;
     const f = p.fields.find(x => x.id === fieldId);
     if (!f) return;
-    if (payment === "rice" && !payRice(p, 1)) { addLog(g, `${p.name}：俵不足`); return; }
-    if (payment === "reputation") {
-      if (p.reputation < 1) { addLog(g, `${p.name}：評判不足`); return; }
-      p.reputation -= 1;
-    }
     f.water = clamp(f.water + 2, 0, 5);
     p.workersUsed += 1;
-    addLog(g, `${p.name}：水を引く →水位${f.water}（${payment === "rice" ? "俵1" : "評判1"}）`);
-    addEvent(g, "irrigate", p.id, { payment, water: f.water });
+    addLog(g, `${p.name}：水を引く →水位${f.water}`);
+    addEvent(g, "irrigate", p.id, { water: f.water });
   }
 
   if (action.type === "fertilize") {
@@ -339,19 +352,45 @@ function executeAction(g, playerIdx, action) {
     const f = p.fields.find(x => x.id === fieldId);
     if (!f || f.status !== "planted") { addLog(g, `${p.name}：植付中の田がありません`); return; }
     if (f.fertilized) { addLog(g, `${p.name}：すでに追肥済みです`); return; }
-    if (!payRice(p, 1)) { addLog(g, `${p.name}：俵不足（追肥コスト1俵）`); return; }
-    f.quality = clamp(f.quality + 1, 1, 3);
+    const maxQ = VARIETIES[f.variety]?.maxQuality ?? 3;
+    if (f.quality >= maxQ) { addLog(g, `${p.name}：${f.variety}はこれ以上品質が上がりません（上限${QUALITY_LABEL[maxQ]}）`); return; }
+    let paidWith;
+    if (p.compost > 0) { p.compost -= 1; paidWith = "堆肥"; }
+    else if (payRice(p, 1)) { paidWith = "俵1"; }
+    else { addLog(g, `${p.name}：俵も堆肥も不足`); return; }
+    f.quality = clamp(f.quality + 1, 1, maxQ);
     f.fertilized = true;
     p.workersUsed += 1;
-    addLog(g, `${p.name}：追肥 → 品質 ${QUALITY_LABEL[f.quality]}`);
+    addLog(g, `${p.name}：品質肥料（${paidWith}）→ 品質 ${QUALITY_LABEL[f.quality]}`);
     addEvent(g, "fertilize", p.id, { quality: f.quality });
+  }
+
+  if (action.type === "growth_fert") {
+    const { fieldId } = action;
+    const f = p.fields.find(x => x.id === fieldId);
+    if (!f || f.status !== "planted") { addLog(g, `${p.name}：植付中の田がありません`); return; }
+    if (f.growthFertilized) { addLog(g, `${p.name}：すでに成長肥料済みです`); return; }
+    let paidWith;
+    if (p.compost > 0) { p.compost -= 1; paidWith = "堆肥"; }
+    else if (payRice(p, 1)) { paidWith = "俵1"; }
+    else { addLog(g, `${p.name}：俵も堆肥も不足`); return; }
+    f.growth += 1;
+    f.growthFertilized = true;
+    p.workersUsed += 1;
+    if (f.growth >= f.requiredGrowth) {
+      f.status = "mature"; f.overripe = 0;
+      addLog(g, `${p.name}：成長肥料（${paidWith}）→ ${f.variety}が成熟！`);
+    } else {
+      addLog(g, `${p.name}：成長肥料（${paidWith}）→ 成長 ${f.growth}/${f.requiredGrowth}`);
+    }
+    addEvent(g, "growth_fert", p.id, { growth: f.growth });
   }
 
   if (action.type === "reclaim") {
     const { wildlandId } = action;
     const w = p.wildlands.find(x => x.id === wildlandId);
     if (!w || w.gauge >= 3) { addLog(g, `${p.name}：開墾できる荒れ地がありません`); return; }
-    const bonus = (p.tools.plow ? 2 : 0) + (p.tools.ox ? 1 : 0);
+    const bonus = (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0);
     const before = w.gauge;
     w.gauge = Math.min(3, w.gauge + 1 + bonus);
     const actual = w.gauge - before;
@@ -411,9 +450,9 @@ function executeAction(g, playerIdx, action) {
   if (action.type === "buy_tool") {
     const { item, payment } = action; // item: "plow"|"ox"|"barn", payment: "rice"|"reputation"
     const SHOP = {
-      plow: { name: "道具", riceCost: 4, repCost: 2 },
-      ox:   { name: "牛",   riceCost: 6, repCost: 3 },
-      barn: { name: "倉",   riceCost: 4, repCost: 2 },
+      plow: { name: "道具", riceCost: 8,  repCost: 4 },
+      ox:   { name: "牛",   riceCost: 16, repCost: 6 },
+      barn: { name: "倉",   riceCost: 6,  repCost: 3 },
     };
     const s = SHOP[item];
     if (!s) return;
@@ -442,6 +481,54 @@ function executeAction(g, playerIdx, action) {
     p.donatedThisYear = true;
     addLog(g, `${p.name}：献上（${QUALITY_LABEL[quality]}1俵）→ 評判+2（合計${p.reputation}）`);
     addEvent(g, "donate", p.id, { quality, repDelta: 2 });
+  }
+
+  if (action.type === "migrant") {
+    if (g.seasonIdx < 2) { addLog(g, `${p.name}：出稼ぎは秋・冬のみ（農閑期の仕事）`); return; }
+    if (p.workersUsed + 2 > p.workers) { addLog(g, `${p.name}：働き手不足（出稼ぎは2人）`); return; }
+    p.rice[0].count += 2;
+    p.workersUsed += 2;
+    addLog(g, `${p.name}：出稼ぎ（働き手2）→ 並2俵を稼いだ`);
+    addEvent(g, "migrant", p.id, { gain: 2, workers: 2 });
+  }
+
+  if (action.type === "nursery") {
+    if (p.workersUsed + 1 > p.workers) { addLog(g, `${p.name}：働き手不足`); return; }
+    p.seedlings += 1;
+    p.workersUsed += 1;
+    addLog(g, `${p.name}：育苗 → 苗+1（計${p.seedlings}）。翌春以降の植え付けで成長+1に使える`);
+    addEvent(g, "nursery", p.id, { seedlings: p.seedlings });
+  }
+
+  if (action.type === "till") {
+    const { fieldId } = action;
+    const f = p.fields.find(x => x.id === fieldId);
+    if (!f || f.status !== "empty") { addLog(g, `${p.name}：耕せる空き田がありません`); return; }
+    if (f.tilled) { addLog(g, `${p.name}：すでに耕済みです`); return; }
+    if (p.workersUsed + 1 > p.workers) { addLog(g, `${p.name}：働き手不足`); return; }
+    f.tilled = true;
+    p.workersUsed += 1;
+    addLog(g, `${p.name}：土づくり → この田の次の作物は品質+1で始まる`);
+    addEvent(g, "till", p.id, {});
+  }
+
+  if (action.type === "strawwork") {
+    if (p.strawworkThisYear) { addLog(g, `${p.name}：藁仕事は年1回のみです`); return; }
+    if (p.workersUsed + 2 > p.workers) { addLog(g, `${p.name}：働き手不足（藁仕事は2人）`); return; }
+    p.reputation += 1;
+    p.strawworkThisYear = true;
+    p.workersUsed += 2;
+    addLog(g, `${p.name}：藁仕事（縄ない・働き手2）→ 評判+1（計${p.reputation}）`);
+    addEvent(g, "strawwork", p.id, { repDelta: 1, workers: 2 });
+  }
+
+  if (action.type === "compost") {
+    if (g.seasonIdx < 2) { addLog(g, `${p.name}：堆肥作りは秋・冬のみ`); return; }
+    if (p.workersUsed + 1 > p.workers) { addLog(g, `${p.name}：働き手不足`); return; }
+    p.compost += 2;
+    p.workersUsed += 1;
+    addLog(g, `${p.name}：堆肥作り → 堆肥+2（計${p.compost}）。肥料の俵コストを肩代わり`);
+    addEvent(g, "compost", p.id, { compost: p.compost });
   }
 }
 
@@ -495,7 +582,8 @@ function beginYearEnd(g) {
   g.players.forEach(p => {
     const total = totalRiceCount(p);
     if (total === 0) { addLog(g, `B. ${p.name}：保管リスクなし（俵ゼロ）`); return; }
-    const raw = total <= 5 ? 1 : total <= 10 ? 2 : total <= 15 ? 3 : 4;
+    const raw = total <= 10 ? 0 : total <= 20 ? 1 : total <= 30 ? 2 : 3; // ネズミ大発生を脅威の主役にし、通常の保管リスクは軽め
+    if (raw === 0) { addLog(g, `B. ${p.name}：保管リスクなし（${total}俵）`); return; }
     const loss = p.tools.barn ? Math.ceil(raw / 2) : raw;
     const before = totalRiceCount(p);
     payRice(p, loss);
@@ -504,10 +592,26 @@ function beginYearEnd(g) {
     addEvent(g, "storage_risk", p.id, { stored: total, loss: paid, barn: p.tools.barn });
   });
 
-  // → C. 雇用フェーズへ
+  // B-2. ネズミの大量発生（レア・ゲーム1回まで・備蓄が半分消える大災害／倉で1/4に軽減）
+  if (!g.ratOutbreakDone && g.year >= 2 && Math.random() < RAT_OUTBREAK_CHANCE) {
+    g.ratOutbreakDone = true;
+    addLog(g, "🐀🐀 ネズミの大量発生！ 蔵に入れていない俵が食い荒らされる…");
+    g.players.forEach(p => {
+      const total = totalRiceCount(p);
+      if (total === 0) { addLog(g, `🐀 ${p.name}：被害なし（俵ゼロ）`); return; }
+      const lossRate = p.tools.barn ? 0.25 : 0.5; // 倉で被害1/4に軽減
+      const loss = Math.ceil(total * lossRate);
+      const before = totalRiceCount(p);
+      payRice(p, loss);
+      const paid = before - totalRiceCount(p);
+      addLog(g, `🐀 ${p.name}：ネズミ被害 -${paid}俵（保管${total}俵 → ${p.tools.barn ? "倉で軽減（1/4）" : "倉なし（半減）"}）`);
+      addEvent(g, "rat_outbreak", p.id, { stored: total, loss: paid, barn: p.tools.barn });
+    });
+  }
+
+  // → 維持費(D)を先に徴収してから C. 雇用の質問へ
   g.phase = "year_end";
-  g.yearEndStep = "C";
-  g.yearEndPlayerIdx = 0;
+  doYearEndMaintenance(g);
 }
 
 // C. 労働力の雇用：count 個雇う（0=雇用なし）
@@ -526,23 +630,31 @@ function doYearEndHire(g, count) {
   }
   g.yearEndPlayerIdx++;
   if (g.yearEndPlayerIdx >= g.players.length) {
-    doYearEndMaintenance(g);
+    g.yearEndStep = "E";
+    g.yearEndPlayerIdx = 0;
   }
 }
 
-// D. 労働力の維持費：保有数×1俵
+// D. 労働力の維持費：保有数×1俵（払えない分だけ労働者が離脱＋評判減）
 function doYearEndMaintenance(g) {
   g.players.forEach(p => {
     const cost = p.workers;
     const before = totalRiceCount(p);
     payRice(p, cost);
     const paid = before - totalRiceCount(p);
-    if (paid < cost) addLog(g, `D. ${p.name}：維持費 ${cost}俵 → ${paid}俵のみ支払い（俵不足）`);
-    else addLog(g, `D. ${p.name}：維持費 -${paid}俵（${p.workers}個×1俵）`);
-    addEvent(g, "maintenance", p.id, { workers: cost, paid, shortfall: cost - paid });
+    const unpaid = cost - paid;
+    if (unpaid > 0) {
+      p.workers = Math.max(0, p.workers - unpaid);
+      p.reputation = Math.max(0, p.reputation - unpaid);
+      addLog(g, `D. ${p.name}：維持費${cost}俵中${paid}俵のみ → 労働者${unpaid}人離脱・評判-${unpaid}（働き手${p.workers}）`);
+      addEvent(g, "maintenance", p.id, { workers: cost, paid, laidOff: unpaid, repLoss: unpaid });
+    } else {
+      addLog(g, `D. ${p.name}：維持費 -${paid}俵（${cost}個×1俵）`);
+      addEvent(g, "maintenance", p.id, { workers: cost, paid, laidOff: 0, repLoss: 0 });
+    }
   });
-  // → E. 位階昇進フェーズへ
-  g.yearEndStep = "E";
+  // → C. 雇用フェーズへ（出費を済ませた状態で雇用を判断）
+  g.yearEndStep = "C";
   g.yearEndPlayerIdx = 0;
 }
 
@@ -604,7 +716,7 @@ function takeYearSnapshot(g) {
 
 function finishYearEnd(g) {
   takeYearSnapshot(g); // 年末決算後の状態を記録
-  g.players.forEach(p => { p.donatedThisYear = false; p.workersUsed = 0; });
+  g.players.forEach(p => { p.donatedThisYear = false; p.strawworkThisYear = false; p.workersUsed = 0; });
   if (g.year >= 6) { doEndGame(g); return; }
   g.year++;
   g.seasonIdx = 0; g.roundInSeason = 0;
@@ -665,7 +777,7 @@ function computeGameMetrics(g) {
   const byPlayer = g.players.map(p => ({ id: p.id, name: p.name, counts: {} }));
   const weatherCounts = {};
   const harvestByQuality = { 並: 0, 上質: 0, 特上: 0 };
-  const varietyPlanted = { 早稲: 0, 中稲: 0, 晩稲: 0 };
+  const varietyPlanted = { 野良稲: 0, 早稲: 0, 中稲: 0, 晩稲: 0 };
   const qLabel = { 1: "並", 2: "上質", 3: "特上" };
   let floods = 0, donations = 0, unusedWorkers = 0, turns = 0;
 
@@ -800,9 +912,17 @@ function FieldCard({ field, selectable, selected, onClick }) {
       </div>
       {field.variety && (
         <div className="text-gray-500">
-          {field.variety} {field.growth}/{field.requiredGrowth}成長
+          {field.variety}・{QUALITY_LABEL[field.quality]}
+          {field.status === "planted" && ` ${field.growth}/${field.requiredGrowth}成長`}
           {field.fertilized && " ✨"}
+          {field.growthFertilized && " 🌿"}
         </div>
+      )}
+      {field.status === "mature" && field.overripe > 0 && (
+        <div className="text-red-500 font-bold mt-0.5">⚠ 傷み始め（早めに収穫）</div>
+      )}
+      {field.status === "empty" && field.tilled && (
+        <div className="text-orange-600 font-semibold">🚜 耕済（次作 品質+1）</div>
       )}
       {field.status === "empty" && <WaterBar water={field.water} />}
     </div>
@@ -881,7 +1001,10 @@ function PlayerBoard({ player, isActive }) {
         {player.tools.plow && <span className="bg-gray-100 rounded px-1">道具</span>}
         {player.tools.ox   && <span className="bg-gray-100 rounded px-1">牛</span>}
         {player.tools.barn && <span className="bg-gray-100 rounded px-1">倉</span>}
+        {player.seedlings > 0 && <span className="bg-emerald-100 text-emerald-600 rounded px-1">苗×{player.seedlings}</span>}
+        {player.compost > 0 && <span className="bg-amber-100 text-amber-600 rounded px-1">堆肥×{player.compost}</span>}
         {player.donatedThisYear && <span className="bg-red-100 text-red-500 rounded px-1">献上済</span>}
+        {player.strawworkThisYear && <span className="bg-purple-100 text-purple-500 rounded px-1">藁仕事済</span>}
       </div>
     </div>
   );
@@ -896,13 +1019,13 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
   const actorIdx = actor.id;
   const remaining = actor.workers - actor.workersUsed;
   const canAct = remaining > 0;
-  const canPlantSeason = seasonIdx <= 1;   // 春・夏のみ
-  const canHarvestSeason = seasonIdx >= 2; // 秋・冬のみ
+  const canPlantSeason = seasonIdx <= 1;   // 春・夏のみ（収穫は通年可）
+  const canAutumnWinter = seasonIdx >= 2;  // 秋・冬のみ（育苗・土づくり・藁仕事）
   const emptyFields  = actor.fields.filter(f => f.status === "empty");
   const plantedFields = actor.fields.filter(f => f.status === "planted");
   const matureFields = actor.fields.filter(f => f.status === "mature");
   const reclaimable   = actor.wildlands.filter(w => w.gauge < 3);
-  const reclaimBonus  = (actor.tools.plow ? 2 : 0) + (actor.tools.ox ? 1 : 0);
+  const reclaimBonus  = (actor.tools.plow ? 1 : 0) + (actor.tools.ox ? 1 : 0);
   const donableRice   = actor.rice.filter(r => r.quality >= 2 && r.count > 0); // 献上可能な俵
   const canDonate     = !actor.donatedThisYear && remaining >= 2 && donableRice.length > 0;
 
@@ -939,10 +1062,31 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
         <div className="grid grid-cols-2 gap-1">
           {emptyFields.map(f => (
             <FieldCard key={f.id} field={f} selectable
-              onClick={() => exec({ type: "plant", fieldId: f.id, variety: chosenVariety })} />
+              onClick={() => {
+                if (actor.seedlings > 0) { setChosenField(f.id); setMode("plant_confirm"); }
+                else exec({ type: "plant", fieldId: f.id, variety: chosenVariety });
+              }} />
           ))}
         </div>
         {emptyFields.length === 0 && <p className="text-xs text-gray-400">空き田がありません</p>}
+        <button onClick={reset} className="text-xs text-gray-400 underline">← 戻る</button>
+      </div>
+    );
+  }
+
+  // ── 植え付け：苗を使うか確認 ──
+  if (mode === "plant_confirm") {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-green-700">育苗の苗を使いますか？（ストック：{actor.seedlings}）</p>
+        <button onClick={() => exec({ type: "plant", fieldId: chosenField, variety: chosenVariety, useSeedling: true })}
+          className="w-full rounded-lg px-3 py-2 text-xs border border-green-400 bg-green-100 hover:bg-green-200">
+          🌱 苗を使って植える（成長+1で開始・残り{actor.seedlings - 1}）
+        </button>
+        <button onClick={() => exec({ type: "plant", fieldId: chosenField, variety: chosenVariety, useSeedling: false })}
+          className="w-full rounded-lg px-3 py-2 text-xs border border-green-300 bg-green-50 hover:bg-green-100">
+          そのまま植える（苗を温存）
+        </button>
         <button onClick={reset} className="text-xs text-gray-400 underline">← 戻る</button>
       </div>
     );
@@ -957,7 +1101,7 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
         <div className="grid grid-cols-2 gap-1">
           {irrigatable.map(f => (
             <FieldCard key={f.id} field={f} selectable
-              onClick={() => { setChosenField(f.id); setMode("irrigate_pay"); }} />
+              onClick={() => exec({ type: "irrigate", fieldId: f.id })} />
           ))}
         </div>
         {irrigatable.length === 0 && <p className="text-xs text-gray-400">全田が水位5です</p>}
@@ -966,40 +1110,61 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
     );
   }
 
-  // ── 水を引く：支払い ──
-  if (mode === "irrigate_pay") {
+  // ── 肥料：種類選択 ──
+  if (mode === "fert_type") {
+    const qFertable = plantedFields.filter(f => !f.fertilized && f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3));
+    const gFertable = plantedFields.filter(f => !f.growthFertilized && f.growth < f.requiredGrowth);
     return (
       <div className="space-y-2">
-        <p className="text-xs font-bold text-blue-700">支払い方法を選択：</p>
-        <button onClick={() => exec({ type: "irrigate", fieldId: chosenField, payment: "rice" })}
-          disabled={totalRiceCount(actor) < 1}
-          className="w-full rounded-lg px-3 py-2 text-xs border border-blue-300 bg-blue-50 hover:bg-blue-100 disabled:opacity-40">
-          俵1枚（残{totalRiceCount(actor)}俵）
+        <p className="text-xs font-bold text-yellow-700">肥料の種類を選択（堆肥1 or 俵1・働き手1）：</p>
+        {actor.compost > 0 && <p className="text-xs text-amber-600">🍂 堆肥{actor.compost}個あり：俵より優先して自動消費</p>}
+        <button onClick={() => setMode("fertilize_field")}
+          disabled={qFertable.length === 0 || (totalRiceCount(actor) < 1 && actor.compost <= 0)}
+          className="w-full rounded-lg px-3 py-2 text-xs border border-yellow-300 bg-yellow-50 hover:bg-yellow-100 disabled:opacity-40">
+          ✨ 品質肥料（品質+1）{qFertable.length === 0 && <span className="ml-1 text-gray-400">対象なし</span>}
         </button>
-        <button onClick={() => exec({ type: "irrigate", fieldId: chosenField, payment: "reputation" })}
-          disabled={actor.reputation < 1}
-          className="w-full rounded-lg px-3 py-2 text-xs border border-purple-300 bg-purple-50 hover:bg-purple-100 disabled:opacity-40">
-          評判1（残{actor.reputation}）
+        <button onClick={() => setMode("growthfert_field")}
+          disabled={gFertable.length === 0 || (totalRiceCount(actor) < 1 && actor.compost <= 0)}
+          className="w-full rounded-lg px-3 py-2 text-xs border border-lime-400 bg-lime-50 hover:bg-lime-100 disabled:opacity-40">
+          🌿 成長肥料（成長+1）{gFertable.length === 0 && <span className="ml-1 text-gray-400">対象なし</span>}
         </button>
         <button onClick={reset} className="text-xs text-gray-400 underline">← 戻る</button>
       </div>
     );
   }
 
-  // ── 追肥：田選択 ──
+  // ── 品質肥料：田選択 ──
   if (mode === "fertilize_field") {
-    const fertilizable = plantedFields.filter(f => !f.fertilized && f.quality < 3);
+    const fertilizable = plantedFields.filter(f => !f.fertilized && f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3));
     return (
       <div className="space-y-2">
-        <p className="text-xs font-bold text-yellow-700">追肥する田を選択（俵1・品質+1）：</p>
+        <p className="text-xs font-bold text-yellow-700">品質肥料をやる田を選択（俵1・品質+1）：</p>
         <div className="grid grid-cols-2 gap-1">
           {fertilizable.map(f => (
             <FieldCard key={f.id} field={f} selectable
               onClick={() => exec({ type: "fertilize", fieldId: f.id })} />
           ))}
         </div>
-        {fertilizable.length === 0 && <p className="text-xs text-gray-400">追肥できる田がありません（植付中・未施肥・品質3未満が条件）</p>}
-        <button onClick={reset} className="text-xs text-gray-400 underline">← 戻る</button>
+        {fertilizable.length === 0 && <p className="text-xs text-gray-400">対象なし（植付中・未施肥・品質上限未満）</p>}
+        <button onClick={() => setMode("fert_type")} className="text-xs text-gray-400 underline">← 戻る</button>
+      </div>
+    );
+  }
+
+  // ── 成長肥料：田選択 ──
+  if (mode === "growthfert_field") {
+    const gfertable = plantedFields.filter(f => !f.growthFertilized && f.growth < f.requiredGrowth);
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-lime-700">成長肥料をやる田を選択（俵1・成長+1）：</p>
+        <div className="grid grid-cols-2 gap-1">
+          {gfertable.map(f => (
+            <FieldCard key={f.id} field={f} selectable
+              onClick={() => exec({ type: "growth_fert", fieldId: f.id })} />
+          ))}
+        </div>
+        {gfertable.length === 0 && <p className="text-xs text-gray-400">対象なし（植付中・成長肥料未使用）</p>}
+        <button onClick={() => setMode("fert_type")} className="text-xs text-gray-400 underline">← 戻る</button>
       </div>
     );
   }
@@ -1007,9 +1172,9 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
   // ── ショップ：道具/牛/倉の購入 ──
   if (mode === "shop") {
     const SHOP = [
-      { item: "plow", label: "道具", emoji: "🔧", riceCost: 4, repCost: 2, owned: actor.tools.plow, desc: "開墾+2 / 収穫+1俵" },
-      { item: "ox",   label: "牛",   emoji: "🐂", riceCost: 6, repCost: 3, owned: actor.tools.ox,   desc: "開墾+1 / 植え付けコスト-1俵" },
-      { item: "barn", label: "倉",   emoji: "🏠", riceCost: 4, repCost: 2, owned: actor.tools.barn, desc: "年度末の保管リスク半減" },
+      { item: "plow", label: "道具", emoji: "🔧", riceCost: 8,  repCost: 4, owned: actor.tools.plow, desc: "開墾+1 / 収穫+1俵" },
+      { item: "ox",   label: "牛",   emoji: "🐂", riceCost: 16, repCost: 6, owned: actor.tools.ox,   desc: "開墾+1 / 植え付けコスト-1俵" },
+      { item: "barn", label: "倉",   emoji: "🏠", riceCost: 6,  repCost: 3, owned: actor.tools.barn, desc: "保管リスク半減 / ネズミ被害1/4" },
     ];
     return (
       <div className="space-y-2">
@@ -1158,6 +1323,24 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
     );
   }
 
+  // ── 土づくり：田選択 ──
+  if (mode === "till_field") {
+    const tillable = actor.fields.filter(f => f.status === "empty" && !f.tilled);
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-orange-700">耕す田を選択（次に植える作物が品質+1で始まる）：</p>
+        <div className="grid grid-cols-2 gap-1">
+          {tillable.map(f => (
+            <FieldCard key={f.id} field={f} selectable
+              onClick={() => exec({ type: "till", fieldId: f.id })} />
+          ))}
+        </div>
+        {tillable.length === 0 && <p className="text-xs text-gray-400">耕せる空き田がありません</p>}
+        <button onClick={reset} className="text-xs text-gray-400 underline">← 戻る</button>
+      </div>
+    );
+  }
+
   // ── メインメニュー ──
   return (
     <div className="space-y-2">
@@ -1177,17 +1360,17 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
           className="rounded-lg px-2 py-2 text-xs font-bold border border-blue-300 bg-blue-50 hover:bg-blue-100 disabled:opacity-40">
           💧 水を引く
         </button>
-        <button onClick={() => setMode("fertilize_field")}
-          disabled={!canAct || !canPlantSeason || plantedFields.filter(f => !f.fertilized && f.quality < 3).length === 0 || totalRiceCount(actor) < 1}
+        <button onClick={() => setMode("fert_type")}
+          disabled={!canAct || (totalRiceCount(actor) < 1 && actor.compost <= 0) || (plantedFields.filter(f => !f.fertilized && f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3)).length === 0 && plantedFields.filter(f => !f.growthFertilized && f.growth < f.requiredGrowth).length === 0)}
           className="rounded-lg px-2 py-2 text-xs font-bold border border-yellow-300 bg-yellow-50 hover:bg-yellow-100 disabled:opacity-40">
-          ✨ 追肥・手入れ
-          {!canPlantSeason && <div className="text-gray-400 font-normal text-xs">秋冬は不可</div>}
+          🧪 肥料
+          <div className="text-gray-400 font-normal text-xs">品質/成長</div>
         </button>
         <button onClick={() => setMode("harvest_field")}
-          disabled={!canAct || !canHarvestSeason || matureFields.length === 0}
+          disabled={!canAct || matureFields.length === 0}
           className="rounded-lg px-2 py-2 text-xs font-bold border border-amber-400 bg-amber-50 hover:bg-amber-100 disabled:opacity-40">
           🌾 収穫
-          {!canHarvestSeason && <div className="text-gray-400 font-normal text-xs">春夏は不可</div>}
+          {matureFields.length === 0 && <div className="text-gray-400 font-normal text-xs">成熟田なし</div>}
         </button>
         <button onClick={() => setMode("reclaim_land")}
           disabled={!canAct || actor.wildlands.length === 0}
@@ -1213,6 +1396,42 @@ function ActionSubPanel({ actor, seasonIdx, update, onDone }) {
           className="rounded-lg px-2 py-2 text-xs font-bold border border-teal-400 bg-teal-50 hover:bg-teal-100">
           🛒 購入
           <div className="font-normal text-teal-600 text-xs">道具/牛/倉</div>
+        </button>
+        <button onClick={() => exec({ type: "migrant" })}
+          disabled={!canAct || !canAutumnWinter || remaining < 2}
+          className="rounded-lg px-2 py-2 text-xs font-bold border border-lime-400 bg-lime-50 hover:bg-lime-100 disabled:opacity-40">
+          💪 出稼ぎ
+          {!canAutumnWinter ? <div className="text-gray-400 font-normal text-xs">秋冬のみ</div>
+            : remaining < 2 ? <div className="text-gray-400 font-normal text-xs">働き手2必要</div>
+            : <div className="font-normal text-lime-600 text-xs">人2→並2俵</div>}
+        </button>
+        <button onClick={() => exec({ type: "nursery" })}
+          disabled={!canAct || !canAutumnWinter}
+          className="rounded-lg px-2 py-2 text-xs font-bold border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40">
+          🌿 育苗
+          {canAutumnWinter ? <div className="text-emerald-600 font-normal text-xs">苗+1</div> : <div className="text-gray-400 font-normal text-xs">秋冬のみ</div>}
+        </button>
+        <button onClick={() => setMode("till_field")}
+          disabled={!canAct || !canAutumnWinter || emptyFields.filter(f => !f.tilled).length === 0}
+          className="rounded-lg px-2 py-2 text-xs font-bold border border-orange-300 bg-orange-50 hover:bg-orange-100 disabled:opacity-40">
+          🚜 土づくり
+          {canAutumnWinter ? <div className="text-orange-600 font-normal text-xs">次作 品質+1</div> : <div className="text-gray-400 font-normal text-xs">秋冬のみ</div>}
+        </button>
+        <button onClick={() => exec({ type: "strawwork" })}
+          disabled={!canAct || !canAutumnWinter || actor.strawworkThisYear || remaining < 2}
+          className="rounded-lg px-2 py-2 text-xs font-bold border border-purple-300 bg-purple-50 hover:bg-purple-100 disabled:opacity-40">
+          🪢 藁仕事
+          {actor.strawworkThisYear
+            ? <div className="text-gray-400 font-normal text-xs">今年済み</div>
+            : !canAutumnWinter ? <div className="text-gray-400 font-normal text-xs">秋冬のみ</div>
+            : remaining < 2 ? <div className="text-gray-400 font-normal text-xs">働き手2必要</div>
+            : <div className="text-purple-600 font-normal text-xs">人2→評判+1</div>}
+        </button>
+        <button onClick={() => exec({ type: "compost" })}
+          disabled={!canAct || !canAutumnWinter}
+          className="rounded-lg px-2 py-2 text-xs font-bold border border-amber-300 bg-amber-50 hover:bg-amber-100 disabled:opacity-40">
+          🍂 堆肥作り
+          {canAutumnWinter ? <div className="text-amber-600 font-normal text-xs">堆肥+2</div> : <div className="text-gray-400 font-normal text-xs">秋冬のみ</div>}
         </button>
       </div>
       <button onClick={onDone}
@@ -1346,7 +1565,7 @@ function ActionPanel({ game, update }) {
             })}
           </div>
           <p className="text-xs text-orange-400">
-            ※ 全員完了後 D.維持費を自動徴収 → E.位階昇進へ
+            ※ 租・保管・維持費はすでに徴収済み。表示の俵はその残りです → 雇用後 E.位階昇進へ
           </p>
         </div>
       );

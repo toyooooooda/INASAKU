@@ -1,0 +1,22 @@
+{
+  "name": "hojo-suiden-online",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "豊穣の水田 改訂版 — boardgame.io オンライン版（M1: 隠匿なし）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server.js"
+  },
+  "dependencies": {
+    "boardgame.io": "0.50.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}
