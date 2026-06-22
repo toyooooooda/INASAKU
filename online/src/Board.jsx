@@ -118,6 +118,7 @@ function ActionPanel({ G, me, moves, events }) {
   const remaining = me.workers - me.workersUsed;
   const canPlant = G.seasonIdx <= 1;
   const aw = G.seasonIdx >= 2; // 秋冬
+  const opponents = G.players.filter((p) => String(p.id) !== String(me.id));
   const empties = me.fields.filter((f) => f.status === 'empty');
   const planted = me.fields.filter((f) => f.status === 'planted');
   const matures = me.fields.filter((f) => f.status === 'mature');
@@ -219,6 +220,83 @@ function ActionPanel({ G, me, moves, events }) {
       </div>
     );
   }
+  // 水の横取り：相手選択 → 相手の田 → 自分の田
+  if (sel?.kind === 'waterTheft1') {
+    return (
+      <div className="act">
+        <p>💧 水の横取り — 水を奪う相手：</p>
+        {opponents.map((op) => (
+          <button key={op.id} onClick={() => setSel({ kind: 'waterTheft2', opId: String(op.id) })}>
+            {op.name}
+          </button>
+        ))}
+        <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+  if (sel?.kind === 'waterTheft2') {
+    const op = G.players.find((p) => String(p.id) === sel.opId);
+    const targets = op ? op.fields.filter((f) => f.water > 0) : [];
+    return (
+      <div className="act">
+        <p>💧 {op?.name}の田から奪う（水-2）：</p>
+        {targets.map((f, idx) => (
+          <button key={f.id} onClick={() => setSel({ kind: 'waterTheft3', opId: sel.opId, theirFieldId: f.id })}>
+            田{idx + 1}（{f.status !== 'empty' ? f.variety : '空き'}・水{f.water}）
+          </button>
+        ))}
+        {targets.length === 0 && <p>水のある田なし</p>}
+        <button className="back" onClick={() => setSel({ kind: 'waterTheft1' })}>← 戻る</button>
+      </div>
+    );
+  }
+  if (sel?.kind === 'waterTheft3') {
+    const myTargets = me.fields.filter((f) => f.water < 5);
+    return (
+      <div className="act">
+        <p>💧 水を引き込む自分の田：</p>
+        {myTargets.map((f) => (
+          <button key={f.id} onClick={() => run(() => moves.waterTheft(sel.opId, sel.theirFieldId, f.id))}>
+            {fieldName(f, me.fields)}（水{f.water}）
+          </button>
+        ))}
+        {myTargets.length === 0 && <p>水位5の田しかない</p>}
+        <button className="back" onClick={() => setSel({ kind: 'waterTheft2', opId: sel.opId })}>← 戻る</button>
+      </div>
+    );
+  }
+
+  // 害虫を放つ：相手選択 → 相手の育成田
+  if (sel?.kind === 'pest1') {
+    return (
+      <div className="act">
+        <p>🐛 害虫を放つ（俵1消費）— 相手を選択：</p>
+        {opponents.map((op) => (
+          <button key={op.id} onClick={() => setSel({ kind: 'pest2', opId: String(op.id) })}>
+            {op.name}
+          </button>
+        ))}
+        <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+  if (sel?.kind === 'pest2') {
+    const op = G.players.find((p) => String(p.id) === sel.opId);
+    const targets = op ? op.fields.filter((f) => f.status === 'planted') : [];
+    return (
+      <div className="act">
+        <p>🐛 {op?.name}の育成田を選択（成長-1）：</p>
+        {targets.map((f, idx) => (
+          <button key={f.id} onClick={() => run(() => moves.pestAttack(sel.opId, f.id))}>
+            田{idx + 1}（{f.variety}・成長{f.growth}/{f.requiredGrowth}・{QUALITY_LABEL[f.quality]}）
+          </button>
+        ))}
+        {targets.length === 0 && <p>育成中の田なし</p>}
+        <button className="back" onClick={() => setSel({ kind: 'pest1' })}>← 戻る</button>
+      </div>
+    );
+  }
+
   if (sel?.kind === 'reclaim') {
     return (
       <div className="act">
@@ -296,6 +374,17 @@ function ActionPanel({ G, me, moves, events }) {
         <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
         <button disabled={!aw || remaining < 2 || me.strawworkThisYear} onClick={() => run(() => moves.strawWork())}>🪢 藁仕事{!aw ? '(秋冬)' : ''}</button>
         <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.makeCompost())}>🍂 堆肥作り{!aw ? '(秋冬)' : ''}</button>
+        <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
+        <button
+          disabled={remaining < 1 || opponents.every((op) => op.fields.every((f) => f.water <= 0))}
+          onClick={() => setSel({ kind: 'waterTheft1' })}
+          style={{ background: '#e8f4fb', borderColor: '#90cce8' }}
+        >💧 水の横取り</button>
+        <button
+          disabled={G.seasonIdx >= 2 || remaining < 2 || riceTotal(me) < 1 || opponents.every((op) => op.fields.every((f) => f.status !== 'planted'))}
+          onClick={() => setSel({ kind: 'pest1' })}
+          style={{ background: '#fdf0e8', borderColor: '#e8b090' }}
+        >🐛 害虫を放つ{G.seasonIdx >= 2 ? '(春夏)' : ''}</button>
       </div>
       <button className="done" onClick={() => events.endTurn()}>行動終了（次のプレイヤーへ）</button>
     </div>

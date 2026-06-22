@@ -212,7 +212,7 @@ export function endOfRound(G, random) {
     // 最終年の夏R2終了 → 秋冬スキップして即終了
     if (isFinalYear && endOfSummer) {
       addLog(G, `=== ${G.year}年 夏終了 → ゲーム終了 ===`);
-      runYearEndAuto(G, random); // 租・保管・ネズミ・維持費は徴収
+      runYearEndAuto(G, random, { skipRent: true }); // 租免除・保管/ネズミ/維持費は徴収
       G.finalScores = computeScores(G);
       G.gameOver = true;
       addLog(G, `=== 終了 🏆 ${G.finalScores[0].name}（${G.finalScores[0].total}点） ===`);
@@ -231,15 +231,20 @@ export function endOfRound(G, random) {
 }
 
 // ===== 年度末の自動処理（対話の前に出費を済ませる）=====
-function runYearEndAuto(G, random) {
+// skipRent=true のとき租を徴収しない（最終年の夏終了時）
+function runYearEndAuto(G, random, { skipRent = false } = {}) {
   addLog(G, `=== ${G.year}年度末 ===`);
   const expenses = G.players.map((p) => ({ name: p.name, rent: 0, storage: 0, rats: 0, maintenance: 0, departed: 0 }));
-  // 1. 租
-  G.players.forEach((p, i) => {
-    const rent = p.fields.length; const before = totalRiceCount(p);
-    payRice(p, rent); expenses[i].rent = before - totalRiceCount(p);
-    addLog(G, `租：${p.name} -${expenses[i].rent}俵（田${p.fields.length}）`);
-  });
+  // 1. 租（最終年終了時はスキップ）
+  if (!skipRent) {
+    G.players.forEach((p, i) => {
+      const rent = p.fields.length; const before = totalRiceCount(p);
+      payRice(p, rent); expenses[i].rent = before - totalRiceCount(p);
+      addLog(G, `租：${p.name} -${expenses[i].rent}俵（田${p.fields.length}）`);
+    });
+  } else {
+    addLog(G, '租：最終年のため免除');
+  }
   // 2. 保管リスク（軽め・倉で半減）
   G.players.forEach((p, i) => {
     const total = totalRiceCount(p);

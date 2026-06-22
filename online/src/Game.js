@@ -263,6 +263,44 @@ export const HojoSuiden = {
       addEvent(G, 'compost', playerID, { compost: p.compost });
     },
 
+    // ---- 水の横取り（通年・働き手1）相手の田-2/自分の田+2 ----
+    waterTheft: ({ G, playerID }, targetPlayerID, theirFieldId, myFieldId) => {
+      const me = G.players[Number(playerID)];
+      const them = G.players[Number(targetPlayerID)];
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (targetPlayerID === playerID) return INVALID_MOVE;
+      if (!them) return INVALID_MOVE;
+      if (me.workersUsed + 1 > me.workers) return INVALID_MOVE;
+      const tf = them.fields.find((x) => x.id === theirFieldId);
+      const mf = me.fields.find((x) => x.id === myFieldId);
+      if (!tf || !mf) return INVALID_MOVE;
+      if (tf.water <= 0) return INVALID_MOVE; // 干上がっている田からは奪えない
+      const steal = Math.min(2, tf.water);
+      tf.water = clamp(tf.water - steal, 0, 5);
+      mf.water = clamp(mf.water + steal, 0, 5);
+      me.workersUsed += 1;
+      addLog(G, `💧${me.name}→${them.name}の田から水を横取り -${steal}（${them.name}水位${tf.water}）→${me.name}水位${mf.water}`);
+      addEvent(G, 'water_theft', playerID, { from: targetPlayerID, steal });
+    },
+
+    // ---- 害虫を放つ（春夏のみ・働き手2・俵1）相手の育成田の成長-1 ----
+    pestAttack: ({ G, playerID }, targetPlayerID, theirFieldId) => {
+      const me = G.players[Number(playerID)];
+      const them = G.players[Number(targetPlayerID)];
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (G.seasonIdx >= 2) return INVALID_MOVE; // 秋冬は不可
+      if (targetPlayerID === playerID) return INVALID_MOVE;
+      if (!them) return INVALID_MOVE;
+      if (me.workersUsed + 2 > me.workers) return INVALID_MOVE;
+      if (!payRice(me, 1)) return INVALID_MOVE;
+      const tf = them.fields.find((x) => x.id === theirFieldId);
+      if (!tf || tf.status !== 'planted') return INVALID_MOVE;
+      tf.growth = Math.max(0, tf.growth - 1);
+      me.workersUsed += 2;
+      addLog(G, `🐛${me.name}：${them.name}の${tf.variety}に害虫 成長-1（→${tf.growth}/${tf.requiredGrowth}）`);
+      addEvent(G, 'pest_attack', playerID, { target: targetPlayerID, fieldId: theirFieldId });
+    },
+
     // ---- 購入（通年・働き手不要）----
     buyTool: ({ G, playerID }, item, payment) => {
       const p = G.players[Number(playerID)];
