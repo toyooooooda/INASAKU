@@ -112,6 +112,16 @@ function applyCardEffect(G, card) {
   }
 }
 
+// 天候による成長増加で即成熟するケースを処理（doGrowthPhase を待たずに反映）
+function sweepMaturity(G) {
+  G.players.forEach((p) => p.fields.forEach((f) => {
+    if (f.status === 'planted' && f.growth >= f.requiredGrowth) {
+      f.status = 'mature'; f.overripe = 0;
+      addLog(G, `${p.name}の${f.variety}が成熟！（${QUALITY_LABEL[f.quality]}）`);
+    }
+  }));
+}
+
 export function drawAndApplyWeather(G, random) {
   G.cloudyThisRound = false;
   if (!G.weatherDeck || G.weatherDeck.length === 0) G.weatherDeck = random.Shuffle([...WEATHER_CARDS]);
@@ -122,6 +132,7 @@ export function drawAndApplyWeather(G, random) {
   addLog(G, `天候【${card.name}】${card.desc} ／ ${effects.map((e, i) => `${e.icon}(${dice[i]})`).join(' ')}`);
   effects.forEach((e) => applyDie(G, e.type));
   applyCardEffect(G, card);
+  sweepMaturity(G); // 成長が上限に達していれば即成熟
   addEvent(G, 'weather', null, { card: card.name, effect: card.effect, dice: [...dice] });
 }
 
@@ -173,37 +184,42 @@ export function endOfRound(G, random) {
 // ===== 年度末の自動処理（対話の前に出費を済ませる）=====
 function runYearEndAuto(G, random) {
   addLog(G, `=== ${G.year}年度末 ===`);
+  const expenses = G.players.map((p) => ({ name: p.name, rent: 0, storage: 0, rats: 0, maintenance: 0, departed: 0 }));
   // 1. 租
-  G.players.forEach((p) => {
+  G.players.forEach((p, i) => {
     const rent = p.fields.length; const before = totalRiceCount(p);
-    payRice(p, rent); const paid = before - totalRiceCount(p);
-    addLog(G, `租：${p.name} -${paid}俵（田${p.fields.length}）`);
+    payRice(p, rent); expenses[i].rent = before - totalRiceCount(p);
+    addLog(G, `租：${p.name} -${expenses[i].rent}俵（田${p.fields.length}）`);
   });
   // 2. 保管リスク（軽め・倉で半減）
-  G.players.forEach((p) => {
+  G.players.forEach((p, i) => {
     const total = totalRiceCount(p);
     const raw = total <= 10 ? 0 : total <= 20 ? 1 : total <= 30 ? 2 : 3;
     if (raw === 0) return;
     const loss = p.tools.barn ? Math.ceil(raw / 2) : raw;
     const before = totalRiceCount(p); payRice(p, loss);
-    addLog(G, `保管リスク：${p.name} -${before - totalRiceCount(p)}俵（保管${total}${p.tools.barn ? '・倉' : ''}）`);
+    expenses[i].storage = before - totalRiceCount(p);
+    addLog(G, `保管リスク：${p.name} -${expenses[i].storage}俵（保管${total}${p.tools.barn ? '・倉' : ''}）`);
   });
   // 3. ネズミの大量発生（レア・甚大・ゲーム1回）
   if (!G.ratOutbreakDone && G.year >= 2 && random.Number() < RAT_OUTBREAK_CHANCE) {
     G.ratOutbreakDone = true;
     addLog(G, '🐀🐀 ネズミの大量発生！');
-    G.players.forEach((p) => {
+    G.players.forEach((p, i) => {
       const total = totalRiceCount(p); if (total === 0) return;
       const loss = Math.ceil(total * (p.tools.barn ? 0.25 : 0.5));
       const before = totalRiceCount(p); payRice(p, loss);
-      addLog(G, `🐀 ${p.name} -${before - totalRiceCount(p)}俵（保管${total}${p.tools.barn ? '・倉で軽減' : ''}）`);
+      expenses[i].rats = before - totalRiceCount(p);
+      addLog(G, `🐀 ${p.name} -${expenses[i].rats}俵（保管${total}${p.tools.barn ? '・倉で軽減' : ''}）`);
     });
   }
   // 4. 維持費（払えない分だけ離脱＋評判減）
-  G.players.forEach((p) => {
+  G.players.forEach((p, i) => {
     const cost = p.workers; const before = totalRiceCount(p);
     payRice(p, cost); const paid = before - totalRiceCount(p); const unpaid = cost - paid;
+    expenses[i].maintenance = paid;
     if (unpaid > 0) {
+      expenses[i].departed = unpaid;
       p.workers = Math.max(0, p.workers - unpaid);
       p.reputation = Math.max(0, p.reputation - unpaid);
       addLog(G, `維持費：${p.name} ${paid}俵のみ→労働者${unpaid}人離脱・評判-${unpaid}（働き手${p.workers}）`);
@@ -211,6 +227,7 @@ function runYearEndAuto(G, random) {
       addLog(G, `維持費：${p.name} -${paid}俵`);
     }
   });
+  G.lastYearEndExpenses = { year: G.year, expenses };
 }
 
 // ===== 年度末の対話完了後（最終プレイヤーの手番終了時に呼ぶ）=====

@@ -76,7 +76,7 @@ export const HojoSuiden = {
       const useNae = !!useSeedling && p.seedlings > 0;
       const tilledBonus = f.tilled ? 1 : 0;
       f.status = 'planted'; f.variety = variety;
-      f.growth = useNae ? 1 : 0; f.requiredGrowth = def.requiredGrowth;
+      f.growth = useNae ? 2 : 0; f.requiredGrowth = def.requiredGrowth; // 苗=成長+2で開始
       f.quality = clamp(def.baseQuality + tilledBonus, 1, def.maxQuality);
       f.fertilized = false; f.growthFertilized = false; f.tilled = false;
       if (useNae) p.seedlings -= 1;
@@ -95,6 +95,22 @@ export const HojoSuiden = {
       f.water = clamp(f.water + 2, 0, 5); p.workersUsed += 1;
       addLog(G, `${p.name}：水を引く →水位${f.water}`);
       addEvent(G, 'irrigate', playerID, { water: f.water });
+    },
+
+    // ---- 水路で引く（水路ツール装備時・働き手1で2か所）----
+    irrigateTwo: ({ G, playerID }, fieldId1, fieldId2) => {
+      const p = G.players[Number(playerID)];
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (!p.tools.canal) return INVALID_MOVE;
+      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+      const f1 = p.fields.find((x) => x.id === fieldId1);
+      const f2 = p.fields.find((x) => x.id === fieldId2);
+      if (!f1 || !f2 || fieldId1 === fieldId2) return INVALID_MOVE;
+      f1.water = clamp(f1.water + 2, 0, 5);
+      f2.water = clamp(f2.water + 2, 0, 5);
+      p.workersUsed += 1;
+      addLog(G, `${p.name}：水路で引く →田${p.fields.indexOf(f1) + 1}水位${f1.water}・田${p.fields.indexOf(f2) + 1}水位${f2.water}`);
+      addEvent(G, 'irrigateTwo', playerID, {});
     },
 
     // ---- 品質肥料（通年）----
@@ -174,8 +190,9 @@ export const HojoSuiden = {
       if (G.stage !== 'action' || p.donatedThisYear) return INVALID_MOVE;
       if (p.workersUsed + 2 > p.workers) return INVALID_MOVE;
       if (quality < 2 || quality > 3 || p.rice[quality - 1].count < 1) return INVALID_MOVE;
-      p.rice[quality - 1].count -= 1; p.reputation += 2; p.donatedThisYear = true; p.workersUsed += 2;
-      addLog(G, `${p.name}：献上→評判+2（計${p.reputation}）`);
+      const repGain = quality === 3 ? 3 : 2; // 特上+3、上質+2
+      p.rice[quality - 1].count -= 1; p.reputation += repGain; p.donatedThisYear = true; p.workersUsed += 2;
+      addLog(G, `${p.name}：献上（${quality === 3 ? '特上' : '上質'}）→評判+${repGain}（計${p.reputation}）`);
       addEvent(G, 'donate', playerID, { quality });
     },
 
@@ -253,7 +270,8 @@ export const HojoSuiden = {
       if (G.stage !== 'yearEnd') return INVALID_MOVE;
       const hc = clamp(hireCount | 0, 0, 3);
       if (hc > 0) {
-        const cost = hc * 4;
+        // 逓増：現在の働き手数に応じてコスト増加（3→4: 4俵, 4→5: 6俵, 5→6: 8俵, 6→7: 10俵）
+        let cost = 0; for (let n = 0; n < hc; n++) cost += 2 + 2 * (p.workers + n - 1);
         if (totalRiceCount(p) >= cost) { payRice(p, cost); p.workers += hc; addLog(G, `雇用：${p.name} +${hc}人（-${cost}俵）`); }
       }
       if (doRankUp && p.rank < RANK_COSTS.length) {

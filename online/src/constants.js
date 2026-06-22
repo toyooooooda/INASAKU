@@ -16,9 +16,10 @@ export const VARIETIES = {
 };
 
 export const TOOLS = {
-  plow: { name: '道具', riceCost: 8,  repCost: 4, desc: '開墾+1 / 収穫+1俵' },
-  ox:   { name: '牛',   riceCost: 16, repCost: 6, desc: '開墾+1 / 植付-1俵' },
-  barn: { name: '倉',   riceCost: 6,  repCost: 3, desc: '保管半減 / ネズミ被害1/4' },
+  plow:  { name: '道具', riceCost: 8,  repCost: 4, desc: '開墾+1 / 収穫+1俵' },
+  ox:    { name: '牛',   riceCost: 16, repCost: 6, desc: '開墾+1 / 植付-1俵' },
+  barn:  { name: '倉',   riceCost: 6,  repCost: 3, desc: '保管半減 / ネズミ被害1/4' },
+  canal: { name: '水路', riceCost: 10, repCost: 4, desc: '働き手1で2か所同時に水を引く' },
 };
 
 export const WEATHER_CARDS = [

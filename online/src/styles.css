@@ -66,6 +66,14 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
 .log { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 8px; font-size: 11px; color: #555; max-height: 200px; overflow-y: auto; }
 .log div { padding: 1px 0; }
 
+/* 年度末出費 */
+.yearend-expense { background: #fff8e8; border: 1px solid #e8c86a; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+.ye-title { font-weight: bold; color: #8a5000; margin-bottom: 6px; font-size: 12px; }
+.ye-row { display: flex; justify-content: space-between; padding: 2px 0; color: #555; }
+.ye-row.ye-bad { color: #c0392b; font-weight: bold; }
+.ye-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e8c86a; font-weight: bold; color: #333; }
+.ye-section { margin: 6px 0; }
+
 /* 天候オーバーレイ */
 .weather-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55);

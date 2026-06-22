@@ -102,6 +102,7 @@ function PlayerPanel({ p, isCurrent, isMe }) {
         {p.tools.plow && <span className="tag">道具</span>}
         {p.tools.ox && <span className="tag">牛</span>}
         {p.tools.barn && <span className="tag">倉</span>}
+        {p.tools.canal && <span className="tag">水路</span>}
         {p.seedlings > 0 && <span className="tag">苗×{p.seedlings}</span>}
         {p.compost > 0 && <span className="tag">堆肥×{p.compost}</span>}
         {p.donatedThisYear && <span className="tag">献上済</span>}
@@ -157,7 +158,7 @@ function ActionPanel({ G, me, moves, events }) {
     return (
       <div className="act">
         <p>苗を使う？（ストック{me.seedlings}）</p>
-        <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, true))}>🌱 苗を使う（成長+1）</button>
+        <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, true))}>🌱 苗を使う（成長+2）</button>
         <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, false))}>そのまま植える</button>
         <button className="back" onClick={reset}>← 戻る</button>
       </div>
@@ -183,6 +184,37 @@ function ActionPanel({ G, me, moves, events }) {
         ))}
         {list.length === 0 && <p>対象なし</p>}
         <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+  if (sel?.kind === 'canal1') {
+    const list = me.fields.filter((f) => f.water < 5);
+    return (
+      <div className="act">
+        <p>水路で引く — 1か所目：</p>
+        {list.map((f) => (
+          <button key={f.id} onClick={() => setSel({ kind: 'canal2', firstId: f.id })}>
+            {fieldName(f, me.fields)}（水{f.water}）
+          </button>
+        ))}
+        {list.length === 0 && <p>対象なし</p>}
+        <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+  if (sel?.kind === 'canal2') {
+    const list = me.fields.filter((f) => f.water < 5 && f.id !== sel.firstId);
+    const f1 = me.fields.find((f) => f.id === sel.firstId);
+    return (
+      <div className="act">
+        <p>水路で引く — 2か所目（1か所目：{fieldName(f1, me.fields)}）：</p>
+        {list.map((f) => (
+          <button key={f.id} onClick={() => run(() => moves.irrigateTwo(sel.firstId, f.id))}>
+            {fieldName(f, me.fields)}（水{f.water}）
+          </button>
+        ))}
+        {list.length === 0 && <p>対象なし</p>}
+        <button className="back" onClick={() => setSel({ kind: 'canal1' })}>← 戻る</button>
       </div>
     );
   }
@@ -251,6 +283,7 @@ function ActionPanel({ G, me, moves, events }) {
       <div className="menu">
         <button disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })}>🌱 植え付け{!canPlant ? '(春夏)' : ''}</button>
         <button disabled={remaining < 1} onClick={() => setSel({ kind: 'irrigate' })}>💧 水を引く</button>
+        {me.tools.canal && <button disabled={remaining < 1 || me.fields.filter((f) => f.water < 5).length < 2} onClick={() => setSel({ kind: 'canal1' })}>🌊 水路（2か所）</button>}
         <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertQ' })}>✨ 品質肥料</button>
         <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })}>🌿 成長肥料</button>
         <button disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })}>⛏️ 開墾</button>
@@ -268,21 +301,47 @@ function ActionPanel({ G, me, moves, events }) {
   );
 }
 
-function YearEndPanel({ me, moves }) {
+function hireCostFor(currentWorkers, n) {
+  // n人雇う総コスト（逓増: workers=3→4: 4俵, 4→5: 6俵, 5→6: 8俵...）
+  let cost = 0; for (let i = 0; i < n; i++) cost += 2 + 2 * (currentWorkers + i - 1);
+  return cost;
+}
+
+function YearEndPanel({ G, me, moves }) {
   const [hire, setHire] = useState(0);
   const [rank, setRank] = useState(false);
   const canRank = me.rank < RANK_COSTS.length && me.reputation >= RANK_COSTS[me.rank];
+  const exp = G.lastYearEndExpenses?.expenses?.find((e) => e.name === me.name);
   return (
     <div className="act">
-      <p><b>年度末の決定</b>（租・保管・維持費は徴収済み）</p>
-      <p>俵{riceTotal(me)} ／ 評判{me.reputation} ／ 働き手{me.workers}</p>
-      <div>雇用：
-        {[0, 1, 2, 3].map((n) => (
-          <button key={n} className={hire === n ? 'on' : ''} disabled={riceTotal(me) < n * 4} onClick={() => setHire(n)}>{n}人</button>
-        ))}
-        <span>（1人=4俵）</span>
+      <p><b>年度末の決定</b></p>
+
+      {exp && (
+        <div className="yearend-expense">
+          <div className="ye-title">今年の出費</div>
+          <div className="ye-row"><span>租</span><span>-{exp.rent}俵</span></div>
+          {exp.storage > 0 && <div className="ye-row"><span>保管リスク</span><span>-{exp.storage}俵</span></div>}
+          {exp.rats > 0 && <div className="ye-row ye-bad"><span>🐀 ネズミ</span><span>-{exp.rats}俵</span></div>}
+          <div className={`ye-row${exp.departed > 0 ? ' ye-bad' : ''}`}>
+            <span>維持費</span>
+            <span>-{exp.maintenance}俵{exp.departed > 0 ? `（${exp.departed}人離脱）` : ''}</span>
+          </div>
+          <div className="ye-total">残り {riceTotal(me)}俵 ／ 評判{me.reputation}</div>
+        </div>
+      )}
+
+      <div className="ye-section">雇用（現在{me.workers}人）：
+        {[0, 1, 2, 3].map((n) => {
+          const cost = hireCostFor(me.workers, n);
+          return (
+            <button key={n} className={hire === n ? 'on' : ''} disabled={n > 0 && riceTotal(me) < cost}
+              onClick={() => setHire(n)}>
+              {n}人{n > 0 ? `(-${cost}俵)` : ''}
+            </button>
+          );
+        })}
       </div>
-      <div>昇進：
+      <div className="ye-section">昇進：
         <button className={rank ? 'on' : ''} disabled={!canRank} onClick={() => setRank(!rank)}>
           {canRank ? `${RANK_LABELS[me.rank + 1]}へ（評判-${RANK_COSTS[me.rank]}）` : '不可'}
         </button>
@@ -429,7 +488,7 @@ export function Board({ G, ctx, moves, events, playerID }) {
       <div className="control">
         {!me ? <p>観戦中（席が割り当てられていません）</p>
           : !myTurn ? <p>他のプレイヤーの手番です…</p>
-            : G.stage === 'yearEnd' ? <YearEndPanel me={me} moves={moves} />
+            : G.stage === 'yearEnd' ? <YearEndPanel G={G} me={me} moves={moves} />
               : <ActionPanel G={G} me={me} moves={moves} events={events} />}
       </div>
 
