@@ -2,7 +2,7 @@
 // boardgame.io の move/hook 内（immer ドラフト）で G を直接ミューテートして使う。
 import {
   SEASONS, QUALITY_LABEL, RANK_COSTS, RAT_OUTBREAK_CHANCE,
-  VARIETIES, WEATHER_CARDS, diceEffect,
+  VARIETIES, WEATHER_CARDS, diceEffect, GAME_YEARS,
 } from './constants.js';
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -200,13 +200,29 @@ export function endOfRound(G, random) {
   if (G.roundPlayOrder) {
     G.roundPlayOrder = [...G.roundPlayOrder.slice(1), G.roundPlayOrder[0]];
   }
+
+  const isFinalYear = G.year >= GAME_YEARS;
+  const endOfSummer = G.seasonIdx === 1 && G.roundInSeason === 1;
+
   if (G.roundInSeason === 0) {
     G.roundInSeason = 1;
   } else {
     G.roundInSeason = 0;
+
+    // 最終年の夏R2終了 → 秋冬スキップして即終了
+    if (isFinalYear && endOfSummer) {
+      addLog(G, `=== ${G.year}年 夏終了 → ゲーム終了 ===`);
+      runYearEndAuto(G, random); // 租・保管・ネズミ・維持費は徴収
+      G.finalScores = computeScores(G);
+      G.gameOver = true;
+      addLog(G, `=== 終了 🏆 ${G.finalScores[0].name}（${G.finalScores[0].total}点） ===`);
+      return;
+    }
+
     if (G.seasonIdx < 3) {
       G.seasonIdx += 1;
     } else {
+      // 冬R2終了 → 年度末（最終年以外）
       runYearEndAuto(G, random);
       G.stage = 'yearEnd';
       G.yearEndPlayerIdx = 0;
@@ -267,12 +283,7 @@ function runYearEndAuto(G, random) {
 export function finishYearEnd(G) {
   G.players.forEach((p) => { p.donatedThisYear = false; p.strawworkThisYear = false; p.workersUsed = 0; });
   takeYearSnapshot(G);
-  if (G.year >= 6) {
-    G.finalScores = computeScores(G);
-    G.gameOver = true;
-    addLog(G, `=== 終了 🏆 ${G.finalScores[0].name}（${G.finalScores[0].total}点） ===`);
-    return;
-  }
+  // 年度末は最終年の前年まで（最終年は夏終了で endOfRound から直接終わる）
   G.year += 1; G.seasonIdx = 0; G.roundInSeason = 0; G.stage = 'action';
   G.yearEndPlayerIdx = 0;
   addLog(G, `=== ${G.year}年目 開始 ===`);

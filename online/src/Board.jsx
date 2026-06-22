@@ -476,7 +476,12 @@ export function Board({ G, ctx, moves, events, playerID }) {
     <div className="wrap">
       {showWeather && <WeatherOverlay G={G} onClose={() => setShowWeather(false)} />}
       <header>
-        <b>{G.year}年目 {SEASONS[G.seasonIdx]} R{G.roundInSeason + 1}</b>
+        <b>{G.year}年目/{G.totalYears}年 {SEASONS[G.seasonIdx]} R{G.roundInSeason + 1}</b>
+        {G.year === G.totalYears && G.seasonIdx <= 1 && (
+          <span style={{ background: '#c0392b', borderRadius: 4, padding: '0 6px', fontSize: 11 }}>
+            最終年・夏終了
+          </span>
+        )}
         <span>{G.stage === 'yearEnd' ? '📜 年度末' : '🌿 行動'}</span>
         <span>手番：{G.players[Number(ctx.currentPlayer)]?.name}</span>
       </header>

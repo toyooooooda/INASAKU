@@ -7,6 +7,8 @@ export const RANK_LABELS = ['平民', '小名', '大名', '公家'];
 export const RANK_COSTS = [3, 6, 10];
 // ネズミ大発生: 2年目以降・各年20%・ゲーム1回まで
 export const RAT_OUTBREAK_CHANCE = 0.2;
+// ゲーム年数（最終年の秋冬はスキップして夏終了）
+export const GAME_YEARS = 5;
 
 export const VARIETIES = {
   野良稲: { requiredGrowth: 3, baseQuality: 1, maxQuality: 1, cost: 0, harvestMin: 2, harvestMax: 2, desc: '3R・並どまり・無料・収穫2' },

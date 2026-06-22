@@ -2,7 +2,7 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField,
@@ -28,6 +28,7 @@ export const HojoSuiden = {
     const G = {
       stage: 'action',
       year: 1, seasonIdx: 0, roundInSeason: 0,
+      totalYears: GAME_YEARS,
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
       roundPlayOrder: order,
