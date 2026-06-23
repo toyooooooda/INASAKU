@@ -5,6 +5,16 @@ body { margin: 0; font-family: system-ui, "Segoe UI", "Hiragino Sans", sans-seri
 .hint code { background: #eee; padding: 0 4px; border-radius: 3px; }
 
 .wrap { max-width: 900px; margin: 0 auto; }
+
+/* ロビー画面 */
+.lobby { max-width: 420px; margin: 60px auto; padding: 32px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+.lobby h2 { margin: 0 0 20px; font-size: 22px; color: #5a3a00; }
+.lobby label { display: block; margin-bottom: 14px; font-size: 13px; color: #555; }
+.lobby input, .lobby select { display: block; margin-top: 4px; width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+.lobby-btn { background: #8d6e3a; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: bold; cursor: pointer; }
+.lobby-btn:hover:not(:disabled) { background: #6e5228; }
+.lobby-btn:disabled { opacity: 0.5; cursor: default; }
+
 header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
 .weather { background: #e6f0fa; border: 1px solid #b9d6f2; border-radius: 8px; padding: 6px 10px; margin: 8px 0; font-size: 13px; }
 
