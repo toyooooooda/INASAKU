@@ -283,59 +283,66 @@ export const HojoSuiden = {
     },
 
     // ---- カードを引く（秋冬・働き手1）----
-    // アクションカード→手札へ。イベントカード→即発動（全員影響）。
+    // 全カード（アクション・イベント問わず）手札へ。使用はplayCardで。
     drawCard: ({ G, playerID, random }) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'action' || G.seasonIdx < 2) return INVALID_MOVE;
       if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
-      // デッキが未シャッフルなら今シャッフル
-      if (!G.cardDeckShuffled) {
-        G.cardDeck = random.Shuffle([...G.cardDeck]);
-        G.cardDeckShuffled = true;
-      }
-      // デッキが空なら捨て札から再構築
+      // 古いゲーム状態への防御初期化
+      if (!G.cardDeck) G.cardDeck = HAND_CARDS.flatMap((c) => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc })));
+      if (!G.cardDiscard) G.cardDiscard = [];
+      if (!G.cardDeckShuffled) { G.cardDeck = random.Shuffle([...G.cardDeck]); G.cardDeckShuffled = true; }
+      // デッキ切れなら捨て札からシャッフルして再補充
       if (G.cardDeck.length === 0) {
         if (G.cardDiscard.length === 0) return INVALID_MOVE;
         G.cardDeck = random.Shuffle([...G.cardDiscard]);
         G.cardDiscard = [];
       }
       p.workersUsed += 1;
+      if (!p.hand) p.hand = [];
       const card = G.cardDeck.pop();
-      if (card.type === 'event') {
-        // イベントカード：即発動
-        if (card.id === 'water_drought') {
-          G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.max(0, f.water - 1); }));
-          addLog(G, `${p.name}が引いた【${card.name}】→ 全員の全田 水位-1！`);
-        }
-        G.cardDiscard.push(card);
-        addEvent(G, 'draw_card', playerID, { card, triggered: true });
-      } else {
-        if (!p.hand) p.hand = [];
-        p.hand.push(card);
-        addLog(G, `${p.name}：カードを引く→【${card.name}】を手札に追加`);
-        addEvent(G, 'draw_card', playerID, { card, triggered: false });
-      }
+      p.hand.push(card);
+      addLog(G, `${p.name}：カードを引いた→【${card.name}】（${card.type === 'event' ? '⚡イベント' : 'アクション'}）`);
+      addEvent(G, 'draw_card', playerID, { card });
     },
 
     // ---- 手札カードを使う（働き手不要）----
-    playCard: ({ G, playerID }, handIdx) => {
+    // fieldId は成長肥料など対象選択が必要なカード用
+    playCard: ({ G, playerID }, handIdx, fieldId) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'action') return INVALID_MOVE;
       if (!p.hand || handIdx < 0 || handIdx >= p.hand.length) return INVALID_MOVE;
+      if (!G.cardDiscard) G.cardDiscard = [];
       const card = p.hand.splice(handIdx, 1)[0];
+
       if (card.id === 'compost') {
         p.compost += 2;
-        addLog(G, `${p.name}：[${card.name}]使用→堆肥+2（計${p.compost}）`);
+        addLog(G, `${p.name}：[${card.name}]→堆肥+2（計${p.compost}）`);
+
       } else if (card.id === 'seedling') {
         p.seedlings += 1;
-        addLog(G, `${p.name}：[${card.name}]使用→苗+1（計${p.seedlings}）`);
+        addLog(G, `${p.name}：[${card.name}]→苗+1（計${p.seedlings}）`);
+
+      } else if (card.id === 'growth_fert') {
+        const f = fieldId && p.fields.find((x) => x.id === fieldId);
+        if (!f || f.status !== 'planted') { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
+        f.growth = Math.min(f.growth + 1, f.requiredGrowth);
+        if (!f.growthFertilized) f.growthFertilized = true;
+        if (f.growth >= f.requiredGrowth) f.status = 'mature';
+        addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 成長+1（${f.growth}/${f.requiredGrowth}）`);
+
       } else if (card.id === 'strawwork') {
         if (p.strawworkThisYear) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
         p.reputation += 1; p.strawworkThisYear = true;
-        addLog(G, `${p.name}：[${card.name}]使用→評判+1（計${p.reputation}）`);
+        addLog(G, `${p.name}：[${card.name}]→評判+1（計${p.reputation}）`);
+
+      } else if (card.id === 'water_drought') {
+        G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.max(0, f.water - 1); }));
+        addLog(G, `${p.name}が【${card.name}】を発動！ → 全員の全田 水位-1`);
       }
+
       G.cardDiscard.push(card);
-      addEvent(G, 'play_card', playerID, { card: { id: card.id } });
+      addEvent(G, 'play_card', playerID, { card: { id: card.id, fieldId } });
     },
 
     // ---- 水の横取り（夏限定・働き手1・評判-1）相手の田-2/自分の田+2 ----

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS } from './constants.js';
+import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS } from './constants.js';
 
 // ---- ツールチップ ----
 function Tip({ text, children }) {
@@ -279,6 +279,23 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     );
   }
 
+  if (sel?.kind === 'playCard_field') {
+    // 成長肥料：育成中の田を選んで成長+1
+    const targets = planted.filter((f) => f.growth < f.requiredGrowth);
+    return (
+      <div className="act">
+        <p>🌿【成長肥料】効果を与える田を選ぶ：</p>
+        {targets.map((f) => (
+          <button key={f.id} onClick={() => run(() => moves.playCard(sel.handIdx, f.id))}>
+            {fieldName(f, me.fields)}（{f.variety}・成長{f.growth}/{f.requiredGrowth}）
+          </button>
+        ))}
+        {targets.length === 0 && <p>対象の田なし（育成中の田が必要）</p>}
+        <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+
   if (sel?.kind === 'reclaim') {
     return (
       <div className="act">
@@ -377,8 +394,8 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
         <Tip text={'働き手1・秋冬限定\n空き田を耕す（耕済みマークが付く）\nその田に次に植える作物が品質+1でスタート\n（1回分・植えたら効果は消える）'}>
           <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
         </Tip>
-        <Tip text={'働き手1・秋冬限定\nデッキからカードを1枚引く\nアクションカード（堆肥作り/育苗/藁仕事）→ 手札へ\nイベントカード（水枯れなど）→ 即発動！'}>
-          <button disabled={!aw || remaining < 1 || (G.cardDeck?.length === 0 && G.cardDiscard?.length === 0)} onClick={() => run(() => moves.drawCard())}>📋 カードを引く{!aw ? '(秋冬)' : ''}</button>
+        <Tip text={'働き手1・秋冬限定\nデッキからカードを1枚引いて手札に加える\nデッキ：堆肥作り/育苗/成長肥料/藁仕事/水枯れ\n使用はいつでも働き手不要'}>
+          <button disabled={!aw || remaining < 1 || (G.cardDeck != null && G.cardDeck.length === 0 && G.cardDiscard != null && G.cardDiscard.length === 0)} onClick={() => run(() => moves.drawCard())}>📋 カードを引く{!aw ? '(秋冬)' : ''}</button>
         </Tip>
         <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
         <Tip text={'働き手1・夏限定・評判-1\n相手の田の水位-2、自分の田の水位+2\n交渉・妨害の手段（評判が必要）'}>
@@ -391,20 +408,29 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
       </div>
       {me.hand && me.hand.length > 0 && (
         <div className="hand-section">
-          <p className="hand-title">🃏 手札（働き手不要で使える）</p>
+          <p className="hand-title">🃏 手札（{me.hand.length}枚）— 働き手不要でいつでも使える</p>
           <div className="hand-cards">
             {me.hand.map((card, i) => {
-              const disabled = card.id === 'strawwork' && me.strawworkThisYear;
+              const cardDef = HAND_CARDS.find((c) => c.id === card.id);
+              const isEvent = card.type === 'event';
+              const isStrawDone = card.id === 'strawwork' && me.strawworkThisYear;
+              const isGrowthFert = card.id === 'growth_fert';
+              const noTarget = isGrowthFert && planted.filter((f) => f.growth < f.requiredGrowth).length === 0;
+              const disabled = isStrawDone || noTarget;
+              const disabledReason = isStrawDone ? '今年の藁仕事は済み（年1回）' : noTarget ? '育成中の田がない' : '';
               return (
-                <div key={i} className="hand-card">
-                  <div className="hand-card-name">{card.name}</div>
-                  <div className="hand-card-desc">{card.desc}</div>
+                <div key={i} className={`hand-card${isEvent ? ' hand-card--event' : ''}`}>
+                  <div className="hand-card-name">{isEvent ? '⚡' : '🌿'} {card.name}</div>
+                  <div className="hand-card-desc">{cardDef?.desc ?? card.desc}</div>
                   <button
                     className="hand-card-use"
                     disabled={disabled}
-                    onClick={() => moves.playCard(i)}
-                    title={disabled ? '今年の藁仕事は済み（年1回）' : `${card.name}の効果を発動する`}
-                  >使う</button>
+                    title={disabled ? disabledReason : isEvent ? '⚠ 全員に影響！自分の田も水位-1' : `${card.name}を発動`}
+                    onClick={() => {
+                      if (isGrowthFert) setSel({ kind: 'playCard_field', handIdx: i });
+                      else moves.playCard(i);
+                    }}
+                  >{isEvent ? '⚡発動' : '使う'}</button>
                 </div>
               );
             })}
