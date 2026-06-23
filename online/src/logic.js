@@ -211,10 +211,7 @@ function clearCropsForWinter(G) {
 // 成長 → 季節/ラウンド進行。年が終われば年度末の自動処理を実行し stage='yearEnd'。
 export function endOfRound(G, random) {
   doGrowthPhase(G);
-  // 毎ラウンド先頭プレイヤーをローテーション
-  if (G.roundPlayOrder) {
-    G.roundPlayOrder = [...G.roundPlayOrder.slice(1), G.roundPlayOrder[0]];
-  }
+  // 手番順のローテーションは turn.order（seatOf）が担当（ここでは何もしない）
 
   const isFinalYear = G.year >= GAME_YEARS;
   const endOfSummer = G.seasonIdx === 1 && G.roundInSeason === 1;

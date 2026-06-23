@@ -11,6 +11,12 @@ import {
 
 const ok = (cond) => (cond ? undefined : INVALID_MOVE);
 
+// 手番の席を返す：ラウンドごとに先頭を1つずつ進める（毎ラウンド手番順が変わる）
+// turnCount=0,1,2(=1巡目) → 3,4,5(2巡目は+1ずれ) ...
+function seatOf(turnCount, n) {
+  return (Math.floor(turnCount / n) + (turnCount % n)) % n;
+}
+
 // 肥料支払い：堆肥優先→俵。払えれば識別子を返し、ダメなら null
 function payFertilizer(p) {
   if (p.compost > 0) { p.compost -= 1; return '堆肥'; }
@@ -32,6 +38,8 @@ export const HojoSuiden = {
       totalYears: GAME_YEARS,
       advanced,                                  // 上級ルール ON/OFF
       hiddenTribute: advanced && ctx.numPlayers >= 3, // 隠し献上（3人以上）
+      needClanDeal: advanced,                    // 初回 onBegin で家系をランダム配布
+      turnCount: 0,                              // 通算手番数（手番順ローテーションに使用）
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
       cardDeck: HAND_CARDS.flatMap(c => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc }))),
@@ -45,15 +53,7 @@ export const HojoSuiden = {
       events: [], yearSnapshots: [],
     };
     for (let i = 0; i < ctx.numPlayers; i++) G.players.push(createPlayer(i));
-    // 上級ルール：家系を席順に配布
-    if (advanced) {
-      G.players.forEach((p, i) => {
-        const clan = CLANS[i % CLANS.length];
-        p.clan = clan.id;
-        if (clan.id === 'noble') p.reputation += 2; // 名門：初期評判+2
-      });
-      addLog(G, `上級ルール ON（家系${G.hiddenTribute ? '＋隠し献上' : ''}）`);
-    }
+    if (advanced) addLog(G, `上級ルール ON（家系${G.hiddenTribute ? '＋隠し献上' : ''}）`);
     return G;
   },
 
@@ -65,8 +65,9 @@ export const HojoSuiden = {
       return false;
     },
     order: {
-      first: () => 0,
-      next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
+      // 席は turnCount から計算。毎ラウンド先頭が1つずつずれる。
+      first: ({ G, ctx }) => seatOf(G.turnCount || 0, ctx.numPlayers),
+      next: ({ G, ctx }) => seatOf(G.turnCount || 0, ctx.numPlayers),
       playOrder: ({ G }) => G.roundPlayOrder,
     },
     onBegin: ({ G, ctx, random }) => {
@@ -77,9 +78,21 @@ export const HojoSuiden = {
       G.playerDone[idx] = false;
       G.yearEndDone[idx] = false;
 
+      // 初回：家系をランダム配布（上級ルール・乱数が使える onBegin で実行）
+      if (G.advanced && G.needClanDeal) {
+        const shuffled = random.Shuffle([...CLANS]);
+        G.players.forEach((p, i) => {
+          const clan = shuffled[i % shuffled.length];
+          p.clan = clan.id;
+          if (clan.id === 'noble') p.reputation += 2; // 名門：初期評判+2
+        });
+        G.needClanDeal = false;
+        addLog(G, '家系をランダムに配布しました');
+      }
+
       if (G.stage !== 'action') return;
-      // ラウンド先頭で天候を引いて全員に適用
-      if (ctx.playOrderPos === 0) drawAndApplyWeather(G, random);
+      // ラウンド先頭（巡の最初）で天候を引いて全員に適用
+      if ((G.turnCount % ctx.numPlayers) === 0) drawAndApplyWeather(G, random);
       // 手番プレイヤーの働き手をリセット
       const p = G.players[idx];
       p.workersUsed = 0;
@@ -91,8 +104,11 @@ export const HojoSuiden = {
       }
     },
     onEnd: ({ G, ctx, random }) => {
-      const last = ctx.playOrderPos === ctx.numPlayers - 1;
-      if (!last) return;
+      const n = ctx.numPlayers;
+      const endedTurn = G.turnCount || 0;   // 今終わった手番の通算番号
+      G.turnCount = endedTurn + 1;          // 次の手番へ（next() が参照）
+      const isRoundEnd = (endedTurn % n) === (n - 1);
+      if (!isRoundEnd) return;
       if (G.stage === 'action') endOfRound(G, random);     // 成長＋進行（R8後は年度末へ）
       else if (G.stage === 'yearEnd') finishYearEnd(G);     // 翌年へ or ゲーム終了
     },
