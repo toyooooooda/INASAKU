@@ -320,12 +320,23 @@ export const HojoSuiden = {
       const card = p.hand.splice(handIdx, 1)[0];
 
       if (card.id === 'growth_fert') {
+        // カード版：アクションの once-per-field フラグとは独立（自然上限のみ）
         const f = fieldId && p.fields.find((x) => x.id === fieldId);
-        if (!f || f.status !== 'planted') { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
+        if (!f || f.status !== 'planted' || f.growth >= f.requiredGrowth) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
         f.growth = Math.min(f.growth + 1, f.requiredGrowth);
-        if (!f.growthFertilized) f.growthFertilized = true;
         if (f.growth >= f.requiredGrowth) f.status = 'mature';
         addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 成長+1（${f.growth}/${f.requiredGrowth}）`);
+
+      } else if (card.id === 'quality_fert') {
+        const f = fieldId && p.fields.find((x) => x.id === fieldId);
+        const maxQ = f && (VARIETIES[f.variety]?.maxQuality ?? 3);
+        if (!f || f.status !== 'planted' || f.quality >= maxQ) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
+        f.quality = Math.min(f.quality + 1, maxQ);
+        addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 品質+1`);
+
+      } else if (card.id === 'seedling_card') {
+        p.seedlings += 1;
+        addLog(G, `${p.name}：[${card.name}]→苗+1（計${p.seedlings}・次の植付で成長+1/コスト-1）`);
 
       } else if (card.id === 'growth_all') {
         let n = 0;
@@ -339,9 +350,9 @@ export const HojoSuiden = {
         addLog(G, `${p.name}：【${card.name}】→育成中の${n}枚の田 成長+1`);
 
       } else if (card.id === 'water_all') {
-        let n = 0;
-        p.fields.forEach((f) => { f.water = Math.min(5, f.water + 1); n += 1; });
-        addLog(G, `${p.name}：【${card.name}】→全${n}枚の田 水位+1`);
+        // 慈雨：全員の全田 水位+1
+        G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.min(5, f.water + 1); }));
+        addLog(G, `${p.name}が【${card.name}】を発動！ → 全員の全田 水位+1`);
 
       } else if (card.id === 'strawwork') {
         if (p.strawworkThisYear) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }

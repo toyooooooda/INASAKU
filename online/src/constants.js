@@ -48,13 +48,16 @@ export const WEATHER_CARDS = [
 // type: 'event'  → 引いた瞬間に全プレイヤーへ即発動
 // needsTarget: true → 使用時にフィールド選択が必要
 // type: 'event' → 使うと全員に影響（警告付き）
-// すべて「使えば即・直接効果」型（中間リソースに変換しない）
+// 全員共通の1つの山札から引く。すべて「使えば即・直接効果」型。
+// 山札の大部分は 成長肥料・品質肥料・苗。
 export const HAND_CARDS = [
-  { id: 'growth_fert', name: '成長肥料', type: 'action', needsTarget: true,  desc: '育成中の田1枚を選んで成長+1',        count: 2 },
-  { id: 'growth_all',  name: '豊作',     type: 'action', needsTarget: false, desc: '自分の育成中の全田：成長+1',         count: 2 },
-  { id: 'water_all',   name: '慈雨',     type: 'action', needsTarget: false, desc: '自分の全田：水位+1',                 count: 2 },
-  { id: 'strawwork',   name: '藁仕事',   type: 'action', needsTarget: false, desc: '評判+1（年1回制限あり）',            count: 2 },
-  { id: 'water_drought', name: '水枯れ', type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位-1（自分も含む）', count: 2 },
+  { id: 'growth_fert',   name: '成長肥料', type: 'action', needsTarget: true,  desc: '育成中の田1枚を選んで成長+1',        count: 3 },
+  { id: 'quality_fert',  name: '品質肥料', type: 'action', needsTarget: true,  desc: '育成中の田1枚を選んで品質+1',        count: 3 },
+  { id: 'seedling_card', name: '苗',       type: 'action', needsTarget: false, desc: '苗+1（次の植付が成長+1・コスト-1）', count: 3 },
+  { id: 'growth_all',    name: '豊作',     type: 'action', needsTarget: false, desc: '自分の育成中の全田：成長+1',         count: 1 },
+  { id: 'water_all',     name: '慈雨',     type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位+1',               count: 1 },
+  { id: 'strawwork',     name: '藁仕事',   type: 'action', needsTarget: false, desc: '評判+1（年1回制限あり）',            count: 2 },
+  { id: 'water_drought', name: '水枯れ',   type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位-1（自分も含む）', count: 1 },
 ];
 
 // ダイス目 → 効果（☀️1-2 / 💧3-4 / 🌬️5 / ✨6）
