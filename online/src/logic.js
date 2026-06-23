@@ -252,9 +252,12 @@ function runYearEndAuto(G, random, { skipRent = false } = {}) {
   // 1. 租（最終年終了時はスキップ）
   if (!skipRent) {
     G.players.forEach((p, i) => {
-      const rent = p.fields.length; const before = totalRiceCount(p);
+      // 案2：位階による租の減免（位階ぶん -1俵・最低0）
+      const discount = Math.min(p.fields.length, p.rank);
+      const rent = p.fields.length - discount; const before = totalRiceCount(p);
       payRice(p, rent); expenses[i].rent = before - totalRiceCount(p);
-      addLog(G, `租：${p.name} -${expenses[i].rent}俵（田${p.fields.length}）`);
+      const note = discount > 0 ? `（田${p.fields.length}・位階減免-${discount}）` : `（田${p.fields.length}）`;
+      addLog(G, `租：${p.name} -${expenses[i].rent}俵${note}`);
     });
   } else {
     addLog(G, '租：最終年のため免除');
@@ -332,13 +335,33 @@ export function finishYearEnd(G) {
   addLog(G, `=== ${G.year}年目 開始 ===`);
 }
 
+// 案3：名声の称号（最終評判のしきい値で恒久ボーナス・累積）
+function repTitleBonus(rep) {
+  let b = 0;
+  if (rep >= 10) b += 3;
+  if (rep >= 20) b += 5;
+  if (rep >= 30) b += 8;
+  return b; // 10→3, 20→8, 30→16
+}
+
 export function computeScores(G) {
-  return G.players.map((p) => {
+  const rows = G.players.map((p) => {
     const rice = ricePoints(p);
-    const base = rice + p.reputation;
-    const misu = base >= 88 ? 10 : 0;
-    return { id: p.id, name: p.name, ricePoints: rice, reputation: p.reputation, misuBonus: misu, total: base + misu, rank: p.rank };
-  }).sort((a, b) => b.total - a.total);
+    return {
+      id: p.id, name: p.name, ricePoints: rice, reputation: p.reputation,
+      titleBonus: repTitleBonus(p.reputation), rank: p.rank,
+    };
+  });
+  // 案1：名声第一（最終評判が最多のプレイヤーに +5・同点は全員）
+  const maxRep = Math.max(0, ...rows.map((r) => r.reputation));
+  rows.forEach((r) => { r.fameBonus = (maxRep > 0 && r.reputation === maxRep) ? 5 : 0; });
+  // 米寿（俵＋評判＋称号＋名声の小計が88以上で+10）
+  rows.forEach((r) => {
+    const sub = r.ricePoints + r.reputation + r.titleBonus + r.fameBonus;
+    r.misuBonus = sub >= 88 ? 10 : 0;
+    r.total = sub + r.misuBonus;
+  });
+  return rows.sort((a, b) => b.total - a.total);
 }
 
 export function takeYearSnapshot(G) {

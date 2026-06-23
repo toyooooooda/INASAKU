@@ -553,7 +553,7 @@ function YearEndPanel({ G, me, moves }) {
       </div>
       <div className="ye-section">昇進：
         <button className={rank ? 'on' : ''} disabled={!canRank} onClick={() => setRank(!rank)}
-          title={`位階を上げると土地上限+2枚・荒れ地+2枚が増える\n昇進コスト（評判）：${RANK_COSTS.join(' / ')}（逓増）\n評判を使い切るか、道具/最終点に残すかの判断`}>
+          title={`位階を上げると土地上限+2枚・荒れ地+2枚\n＋毎年の租が位階ぶん減免（-1俵/位階）\n昇進コスト（評判）：${RANK_COSTS.join(' / ')}（逓増）`}>
           {canRank ? `${RANK_LABELS[me.rank + 1]}へ（評判-${RANK_COSTS[me.rank]}）` : '不可'}
         </button>
       </div>
@@ -687,7 +687,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         <h1>🏆 ゲーム終了</h1>
         <ol>
           {scores.map((s) => (
-            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.misuBonus ? '＋米寿10' : ''}）</li>
+            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.titleBonus ? `＋称号${s.titleBonus}` : ''}{s.fameBonus ? `＋名声${s.fameBonus}` : ''}{s.misuBonus ? '＋米寿10' : ''}）</li>
           ))}
         </ol>
       </div>
