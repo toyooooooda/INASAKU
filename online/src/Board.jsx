@@ -279,26 +279,6 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     );
   }
 
-  if (sel?.kind === 'playCard_field') {
-    // 成長肥料 / 品質肥料：育成中の田を選んで効果
-    const isQ = sel.cardId === 'quality_fert';
-    const targets = isQ
-      ? planted.filter((f) => f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3))
-      : planted.filter((f) => f.growth < f.requiredGrowth);
-    return (
-      <div className="act">
-        <p>🌿【{isQ ? '品質肥料' : '成長肥料'}】（{sel.pay === 'worker' ? '働き手1' : '俵1'}で使用）田を選ぶ：</p>
-        {targets.map((f) => (
-          <button key={f.id} onClick={() => run(() => moves.playCard(sel.handIdx, f.id, sel.pay))}>
-            {fieldName(f, me.fields)}（{f.variety}・{isQ ? QUALITY_LABEL[f.quality] : `成長${f.growth}/${f.requiredGrowth}`}）
-          </button>
-        ))}
-        {targets.length === 0 && <p>対象の田なし（育成中の田が必要）</p>}
-        <button className="back" onClick={reset}>← 戻る</button>
-      </div>
-    );
-  }
-
   if (sel?.kind === 'reclaim') {
     return (
       <div className="act">
@@ -409,49 +389,108 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
           >💧 水の横取り{G.seasonIdx !== 1 ? '(夏)' : ''}（評判-1）</button>
         </Tip>
       </div>
-      {me.hand && me.hand.length > 0 && (
-        <div className="hand-section">
-          <p className="hand-title">🃏 手札（{me.hand.length}枚）— 使用コスト：俵1 または 働き手1</p>
-          <div className="hand-cards">
-            {me.hand.map((card, i) => {
-              const cardDef = HAND_CARDS.find((c) => c.id === card.id);
-              const isEvent = card.type === 'event';
-              const needsField = card.id === 'growth_fert' || card.id === 'quality_fert';
-              const isStrawDone = card.id === 'strawwork' && me.strawworkThisYear;
-              const noGrowthFert = card.id === 'growth_fert' && planted.filter((f) => f.growth < f.requiredGrowth).length === 0;
-              const noQualFert = card.id === 'quality_fert' && planted.filter((f) => f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3)).length === 0;
-              const noGrowthAll = card.id === 'growth_all' && planted.length === 0;
-              const noEffect = isStrawDone || noGrowthFert || noQualFert || noGrowthAll;
-              const noEffectReason = isStrawDone ? '今年の藁仕事は済み（年1回）'
-                : (noGrowthFert || noQualFert || noGrowthAll) ? '対象の育成中の田がない' : '';
-              const canRice = riceTotal(me) >= 1;
-              const canWorker = remaining >= 1;
-              const play = (pay) => {
-                if (needsField) setSel({ kind: 'playCard_field', handIdx: i, cardId: card.id, pay });
-                else moves.playCard(i, undefined, pay);
-              };
-              return (
-                <div key={i} className={`hand-card${isEvent ? ' hand-card--event' : ''}`}>
-                  <div className="hand-card-name">{isEvent ? '⚡' : '🌿'} {card.name}</div>
-                  <div className="hand-card-desc">{cardDef?.desc ?? card.desc}</div>
-                  {isEvent && <div className="hand-card-warn">⚠ 全員に影響</div>}
-                  <div className="hand-card-pay">
-                    <button className="hand-card-use" disabled={noEffect || !canRice}
-                      title={noEffect ? noEffectReason : !canRice ? '俵がない' : '俵1で使う'}
-                      onClick={() => play('rice')}>俵-1</button>
-                    <button className="hand-card-use" disabled={noEffect || !canWorker}
-                      title={noEffect ? noEffectReason : !canWorker ? '働き手がない' : '働き手1で使う'}
-                      onClick={() => play('worker')}>人-1</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
       <Tip text={'残りの働き手を返して手番を終える\n次のプレイヤーへターンが移る'}>
         <button className="done" onClick={() => moves.doneTurn()}>行動終了（次のプレイヤーへ）</button>
       </Tip>
+    </div>
+  );
+}
+
+// ---- 手札パネル（常時表示・同種カードは×枚数で集約）----
+function HandPanel({ G, me, moves, myTurn }) {
+  const [pick, setPick] = useState(null); // 対象選択（成長/品質肥料）: { cardId, handIdx, pay }
+  if (!me) return null;
+  const hand = me.hand || [];
+  const planted = me.fields.filter((f) => f.status === 'planted');
+  const canAct = myTurn && G.stage === 'action';
+  const remaining = me.workers - me.workersUsed;
+  const canRice = riceTotal(me) >= 1;
+  const canWorker = remaining >= 1;
+
+  if (hand.length === 0) {
+    return (
+      <div className="hand-section">
+        <p className="hand-title">🃏 自分の手札：なし（秋冬に「カードを引く」で入手）</p>
+      </div>
+    );
+  }
+
+  // 同種カードをまとめる（card.id 単位・代表 handIdx を保持）
+  const groups = [];
+  hand.forEach((card, idx) => {
+    let g = groups.find((x) => x.id === card.id);
+    if (!g) { g = { id: card.id, card, indices: [] }; groups.push(g); }
+    g.indices.push(idx);
+  });
+
+  // 対象選択画面（成長肥料 / 品質肥料）
+  if (pick) {
+    const isQ = pick.cardId === 'quality_fert';
+    const targets = isQ
+      ? planted.filter((f) => f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3))
+      : planted.filter((f) => f.growth < f.requiredGrowth);
+    return (
+      <div className="hand-section">
+        <p className="hand-title">🌿【{isQ ? '品質肥料' : '成長肥料'}】（{pick.pay === 'worker' ? '働き手1' : '俵1'}で使用）田を選ぶ：</p>
+        <div className="hand-cards">
+          {targets.map((f) => (
+            <button key={f.id} className="hand-card-use" style={{ minWidth: 110 }}
+              onClick={() => { moves.playCard(pick.handIdx, f.id, pick.pay); setPick(null); }}>
+              {fieldName(f, me.fields)}（{f.variety}・{isQ ? QUALITY_LABEL[f.quality] : `成長${f.growth}/${f.requiredGrowth}`}）
+            </button>
+          ))}
+          {targets.length === 0 && <span style={{ fontSize: 12, color: '#888' }}>対象の田なし（育成中の田が必要）</span>}
+        </div>
+        <button className="back" onClick={() => setPick(null)}>← 戻る</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hand-section">
+      <p className="hand-title">
+        🃏 自分の手札（{hand.length}枚）
+        {canAct ? ' — 使用コスト：俵1 または 働き手1' : '（自分の手番に使用可）'}
+      </p>
+      <div className="hand-cards">
+        {groups.map((g) => {
+          const card = g.card;
+          const cardDef = HAND_CARDS.find((c) => c.id === card.id);
+          const isEvent = card.type === 'event';
+          const needsField = card.id === 'growth_fert' || card.id === 'quality_fert';
+          const handIdx = g.indices[0];
+          const isStrawDone = card.id === 'strawwork' && me.strawworkThisYear;
+          const noGrowthFert = card.id === 'growth_fert' && planted.filter((f) => f.growth < f.requiredGrowth).length === 0;
+          const noQualFert = card.id === 'quality_fert' && planted.filter((f) => f.quality < (VARIETIES[f.variety]?.maxQuality ?? 3)).length === 0;
+          const noGrowthAll = card.id === 'growth_all' && planted.length === 0;
+          const noEffect = isStrawDone || noGrowthFert || noQualFert || noGrowthAll;
+          const noEffectReason = isStrawDone ? '今年の藁仕事は済み（年1回）'
+            : (noGrowthFert || noQualFert || noGrowthAll) ? '対象の育成中の田がない' : '';
+          const play = (pay) => {
+            if (needsField) setPick({ cardId: card.id, handIdx, pay });
+            else moves.playCard(handIdx, undefined, pay);
+          };
+          return (
+            <div key={g.id} className={`hand-card${isEvent ? ' hand-card--event' : ''}`}>
+              <div className="hand-card-name">
+                {isEvent ? '⚡' : '🌿'} {card.name} <span className="hand-card-count">×{g.indices.length}</span>
+              </div>
+              <div className="hand-card-desc">{cardDef?.desc ?? card.desc}</div>
+              {isEvent && <div className="hand-card-warn">⚠ 全員に影響</div>}
+              {canAct && (
+                <div className="hand-card-pay">
+                  <button className="hand-card-use" disabled={noEffect || !canRice}
+                    title={noEffect ? noEffectReason : !canRice ? '俵がない' : '俵1で使う'}
+                    onClick={() => play('rice')}>俵-1</button>
+                  <button className="hand-card-use" disabled={noEffect || !canWorker}
+                    title={noEffect ? noEffectReason : !canWorker ? '働き手がない' : '働き手1で使う'}
+                    onClick={() => play('worker')}>人-1</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -664,6 +703,8 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
             : G.stage === 'yearEnd' ? <YearEndPanel G={G} me={me} moves={moves} />
               : <ActionPanel G={G} me={me} moves={moves} playerID={playerID} ctx={ctx} />}
       </div>
+
+      {me && <HandPanel G={G} me={me} moves={moves} myTurn={myTurn} />}
 
       <div className="log">
         {G.log.slice(-12).reverse().map((line, i) => <div key={i}>{line}</div>)}

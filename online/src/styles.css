@@ -123,6 +123,7 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
   display: flex; flex-direction: column; gap: 3px;
 }
 .hand-card-name { font-weight: bold; color: #5a3a00; }
+.hand-card-count { color: #8d6e3a; font-weight: bold; background: #f0e2c8; border-radius: 8px; padding: 0 6px; font-size: 11px; }
 .hand-card-desc { color: #666; font-size: 10px; }
 .hand-card-use {
   margin-top: 4px; padding: 3px 8px; font-size: 11px;
