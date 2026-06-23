@@ -48,12 +48,13 @@ export const WEATHER_CARDS = [
 // type: 'event'  → 引いた瞬間に全プレイヤーへ即発動
 // needsTarget: true → 使用時にフィールド選択が必要
 // type: 'event' → 使うと全員に影響（警告付き）
+// すべて「使えば即・直接効果」型（中間リソースに変換しない）
 export const HAND_CARDS = [
-  { id: 'compost',       name: '堆肥作り', type: 'action', needsTarget: false, desc: '堆肥+2（肥料コスト節約）',              count: 2 },
-  { id: 'seedling',      name: '育苗',     type: 'action', needsTarget: false, desc: '苗+1（次の植付：成長+1・コスト-1）',    count: 2 },
-  { id: 'growth_fert',   name: '成長肥料', type: 'action', needsTarget: true,  desc: '育成中の田1枚を選んで成長+1',          count: 2 },
-  { id: 'strawwork',     name: '藁仕事',   type: 'action', needsTarget: false, desc: '評判+1（年1回制限あり）',              count: 2 },
-  { id: 'water_drought', name: '水枯れ',   type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位-1（自分も含む）',   count: 2 },
+  { id: 'growth_fert', name: '成長肥料', type: 'action', needsTarget: true,  desc: '育成中の田1枚を選んで成長+1',        count: 2 },
+  { id: 'growth_all',  name: '豊作',     type: 'action', needsTarget: false, desc: '自分の育成中の全田：成長+1',         count: 2 },
+  { id: 'water_all',   name: '慈雨',     type: 'action', needsTarget: false, desc: '自分の全田：水位+1',                 count: 2 },
+  { id: 'strawwork',   name: '藁仕事',   type: 'action', needsTarget: false, desc: '評判+1（年1回制限あり）',            count: 2 },
+  { id: 'water_drought', name: '水枯れ', type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位-1（自分も含む）', count: 2 },
 ];
 
 // ダイス目 → 効果（☀️1-2 / 💧3-4 / 🌬️5 / ✨6）

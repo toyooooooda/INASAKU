@@ -319,21 +319,29 @@ export const HojoSuiden = {
       if (!G.cardDiscard) G.cardDiscard = [];
       const card = p.hand.splice(handIdx, 1)[0];
 
-      if (card.id === 'compost') {
-        p.compost += 2;
-        addLog(G, `${p.name}：[${card.name}]→堆肥+2（計${p.compost}）`);
-
-      } else if (card.id === 'seedling') {
-        p.seedlings += 1;
-        addLog(G, `${p.name}：[${card.name}]→苗+1（計${p.seedlings}）`);
-
-      } else if (card.id === 'growth_fert') {
+      if (card.id === 'growth_fert') {
         const f = fieldId && p.fields.find((x) => x.id === fieldId);
         if (!f || f.status !== 'planted') { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
         f.growth = Math.min(f.growth + 1, f.requiredGrowth);
         if (!f.growthFertilized) f.growthFertilized = true;
         if (f.growth >= f.requiredGrowth) f.status = 'mature';
         addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 成長+1（${f.growth}/${f.requiredGrowth}）`);
+
+      } else if (card.id === 'growth_all') {
+        let n = 0;
+        p.fields.forEach((f) => {
+          if (f.status === 'planted') {
+            f.growth = Math.min(f.growth + 1, f.requiredGrowth);
+            if (f.growth >= f.requiredGrowth) f.status = 'mature';
+            n += 1;
+          }
+        });
+        addLog(G, `${p.name}：【${card.name}】→育成中の${n}枚の田 成長+1`);
+
+      } else if (card.id === 'water_all') {
+        let n = 0;
+        p.fields.forEach((f) => { f.water = Math.min(5, f.water + 1); n += 1; });
+        addLog(G, `${p.name}：【${card.name}】→全${n}枚の田 水位+1`);
 
       } else if (card.id === 'strawwork') {
         if (p.strawworkThisYear) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }

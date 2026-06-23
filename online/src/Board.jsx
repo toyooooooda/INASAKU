@@ -394,7 +394,7 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
         <Tip text={'働き手1・秋冬限定\n空き田を耕す（耕済みマークが付く）\nその田に次に植える作物が品質+1でスタート\n（1回分・植えたら効果は消える）'}>
           <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
         </Tip>
-        <Tip text={'働き手1・秋冬限定\nデッキからカードを1枚引いて手札に加える\nデッキ：堆肥作り/育苗/成長肥料/藁仕事/水枯れ\n使用はいつでも働き手不要'}>
+        <Tip text={'働き手1・秋冬限定\nデッキからカードを1枚引いて手札に加える\nデッキ：成長肥料/豊作/慈雨/藁仕事/水枯れ\n使うと即・直接効果（働き手不要）'}>
           <button disabled={!aw || remaining < 1 || (G.cardDeck != null && G.cardDeck.length === 0 && G.cardDiscard != null && G.cardDiscard.length === 0)} onClick={() => run(() => moves.drawCard())}>📋 カードを引く{!aw ? '(秋冬)' : ''}</button>
         </Tip>
         <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
@@ -415,9 +415,12 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
               const isEvent = card.type === 'event';
               const isStrawDone = card.id === 'strawwork' && me.strawworkThisYear;
               const isGrowthFert = card.id === 'growth_fert';
-              const noTarget = isGrowthFert && planted.filter((f) => f.growth < f.requiredGrowth).length === 0;
-              const disabled = isStrawDone || noTarget;
-              const disabledReason = isStrawDone ? '今年の藁仕事は済み（年1回）' : noTarget ? '育成中の田がない' : '';
+              const noFertTarget = isGrowthFert && planted.filter((f) => f.growth < f.requiredGrowth).length === 0;
+              const noGrowthAll = card.id === 'growth_all' && planted.length === 0;
+              const disabled = isStrawDone || noFertTarget || noGrowthAll;
+              const disabledReason = isStrawDone ? '今年の藁仕事は済み（年1回）'
+                : noFertTarget ? '育成中の田がない'
+                : noGrowthAll ? '育成中の田がない' : '';
               return (
                 <div key={i} className={`hand-card${isEvent ? ' hand-card--event' : ''}`}>
                   <div className="hand-card-name">{isEvent ? '⚡' : '🌿'} {card.name}</div>
