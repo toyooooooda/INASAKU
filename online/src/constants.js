@@ -10,11 +10,17 @@ export const RAT_OUTBREAK_CHANCE = 0.2;
 // ゲーム年数（最終年の秋冬はスキップして夏終了）
 export const GAME_YEARS = 5;
 
+// unlockYear: この年から植え付け可能（省略=1年目から）。後半に上級品種を解禁。
+// repBonus: 収穫1回ごとの追加評判（上質以上のとき加算）。
 export const VARIETIES = {
-  野良稲: { requiredGrowth: 3, baseQuality: 1, maxQuality: 1, cost: 0, harvestMin: 2, harvestMax: 2, desc: '3R・並どまり・無料・収穫2' },
-  早稲:   { requiredGrowth: 2, baseQuality: 1, maxQuality: 1, cost: 1, harvestMin: 3, harvestMax: 4, desc: '2R・並どまり・1俵・収穫3〜4' },
-  中稲:   { requiredGrowth: 3, baseQuality: 1, maxQuality: 2, cost: 2, harvestMin: 3, harvestMax: 4, desc: '3R・並〜上質・2俵・収穫3〜4' },
-  晩稲:   { requiredGrowth: 4, baseQuality: 2, maxQuality: 3, cost: 2, harvestMin: 2, harvestMax: 3, desc: '4R・上質〜特上・2俵・収穫2〜3' },
+  野良稲: { requiredGrowth: 3, baseQuality: 1, maxQuality: 1, cost: 0, harvestMin: 2, harvestMax: 2, unlockYear: 1, desc: '3R・並どまり・無料・収穫2' },
+  早稲:   { requiredGrowth: 2, baseQuality: 1, maxQuality: 1, cost: 1, harvestMin: 3, harvestMax: 4, unlockYear: 1, desc: '2R・並どまり・1俵・収穫3〜4' },
+  中稲:   { requiredGrowth: 3, baseQuality: 1, maxQuality: 2, cost: 2, harvestMin: 3, harvestMax: 4, unlockYear: 1, desc: '3R・並〜上質・2俵・収穫3〜4' },
+  晩稲:   { requiredGrowth: 4, baseQuality: 2, maxQuality: 3, cost: 2, harvestMin: 2, harvestMax: 3, unlockYear: 1, desc: '4R・上質〜特上・2俵・収穫2〜3' },
+  // ---- 上級品種（後半に解禁）----
+  赤米:   { requiredGrowth: 3, baseQuality: 2, maxQuality: 3, cost: 3, harvestMin: 2, harvestMax: 3, repBonus: 1, unlockYear: 3, desc: '3R・上質〜特上・3俵・収穫2〜3・収穫で評判+1' },
+  餅米:   { requiredGrowth: 4, baseQuality: 2, maxQuality: 3, cost: 3, harvestMin: 4, harvestMax: 5, unlockYear: 3, desc: '4R・上質〜特上・3俵・収穫4〜5（高収量）' },
+  献上米: { requiredGrowth: 4, baseQuality: 3, maxQuality: 3, cost: 4, harvestMin: 2, harvestMax: 3, repBonus: 1, unlockYear: 4, desc: '4R・特上スタート・4俵・収穫2〜3・収穫で評判+1' },
 };
 
 export const TOOLS = {

@@ -144,12 +144,16 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     return (
       <div className="act">
         <p>品種を選択：</p>
-        {Object.entries(VARIETIES).map(([name, def]) => (
-          <button key={name} disabled={riceTotal(me) < def.cost}
-            onClick={() => setSel({ kind: 'plantField', variety: name })}>
-            {name}（{def.desc}）
-          </button>
-        ))}
+        {Object.entries(VARIETIES).map(([name, def]) => {
+          const locked = G.year < (def.unlockYear || 1);
+          return (
+            <button key={name} disabled={locked || riceTotal(me) < def.cost}
+              title={locked ? `${def.unlockYear}年目から解禁` : def.desc}
+              onClick={() => setSel({ kind: 'plantField', variety: name })}>
+              {locked ? `🔒 ${name}（${def.unlockYear}年目〜）` : `${name}（${def.desc}）`}
+            </button>
+          );
+        })}
         <button className="back" onClick={reset}>← 戻る</button>
       </div>
     );

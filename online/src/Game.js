@@ -97,6 +97,7 @@ export const HojoSuiden = {
       const f = p.fields.find((x) => x.id === fieldId);
       const def = VARIETIES[variety];
       if (!f || f.status !== 'empty' || !def) return INVALID_MOVE;
+      if (G.year < (def.unlockYear || 1)) return INVALID_MOVE; // 上級品種は解禁年から
       const useNae = !!useSeedling && p.seedlings > 0;
       // 苗使用で植付コスト-1（牛との重複可・最低0俵）
       const seedCost = Math.max(0, def.cost - (p.tools.ox ? 1 : 0) - (useNae ? 1 : 0));
@@ -208,8 +209,9 @@ export const HojoSuiden = {
       const plowBonus = p.tools.plow ? 1 : 0;
       const count = (w >= 2 ? def.harvestMax : def.harvestMin) + plowBonus;
       const q = clamp(f.quality, 1, 3);
+      const repBonus = (def && def.repBonus) || 0;
       p.rice[q - 1].count += count; p.workersUsed += w;
-      if (q >= 2) { p.reputation += 1; addLog(G, `${p.name}：${f.variety}収穫 ${count}俵 評判+1`); }
+      if (q >= 2) { const gain = 1 + repBonus; p.reputation += gain; addLog(G, `${p.name}：${f.variety}収穫 ${count}俵 評判+${gain}`); }
       else {
         addLog(G, `${p.name}：${f.variety}収穫 並${count}俵`);
         if (count >= 4) { p.reputation = Math.max(0, p.reputation - 1); addLog(G, `${p.name}：並の大量収穫→評判-1`); }
