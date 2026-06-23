@@ -42,6 +42,10 @@ export function App() {
       const { playerCredentials } = await apiPost(`/games/hojo-suiden/${mid}/join`, {
         playerID: '0', playerName: name.trim(),
       });
+      // Board が ?name= を読んで setName move を呼ぶための仕込み（ページリロードなし）
+      const url = new URL(window.location.href);
+      url.searchParams.set('name', name.trim());
+      window.history.replaceState({}, '', url.toString());
       setSession({ matchID: mid, playerID: '0', credentials: playerCredentials, name: name.trim() });
     } catch (e) {
       setErr(`作成失敗: ${e.message}`);
@@ -58,6 +62,9 @@ export function App() {
       const { playerCredentials } = await apiPost(`/games/hojo-suiden/${matchID.trim()}/join`, {
         playerID: seat, playerName: name.trim(),
       });
+      const url = new URL(window.location.href);
+      url.searchParams.set('name', name.trim());
+      window.history.replaceState({}, '', url.toString());
       setSession({ matchID: matchID.trim(), playerID: seat, credentials: playerCredentials, name: name.trim() });
     } catch (e) {
       setErr(`参加失敗: ${e.message}（部屋コードや席番号を確認してください）`);

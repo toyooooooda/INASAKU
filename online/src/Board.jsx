@@ -487,17 +487,18 @@ function WeatherOverlay({ G, onClose }) {
   );
 }
 
-export function Board({ G, ctx, moves, events, playerID }) {
+export function Board({ G, ctx, moves, events, playerID, matchData }) {
   const me = playerID != null ? G.players[Number(playerID)] : null;
   const myTurn = playerID != null && ctx.currentPlayer === playerID;
 
-  // URL の &name= を自分の最初の手番に自動同期
+  // 名前を自分の最初の手番に自動同期（matchData優先→URL params）
   const urlName = new URLSearchParams(window.location.search).get('name');
+  const nameToSync = matchData?.[Number(playerID)]?.name || urlName || '';
   const namesynced = useRef(false);
   useEffect(() => {
-    if (myTurn && urlName && !namesynced.current) {
+    if (myTurn && nameToSync && !namesynced.current) {
       namesynced.current = true;
-      moves.setName(urlName);
+      moves.setName(nameToSync);
     }
   }, [myTurn]);
 
