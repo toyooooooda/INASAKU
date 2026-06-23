@@ -112,3 +112,28 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
 
 .weather-ok { font-size: 15px; padding: 10px 44px; background: #8d6e3a; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 .weather-ok:hover { background: #6e5228; }
+
+/* ツールチップ */
+.tip-wrap { position: relative; display: block; }
+.tip-wrap > button { width: 100%; }
+.tip-box {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(28,28,28,0.94);
+  color: #f0f0f0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  white-space: pre-line;
+  max-width: 240px;
+  min-width: 130px;
+  z-index: 300;
+  pointer-events: none;
+  line-height: 1.6;
+  text-align: left;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+}
+.tip-wrap:hover .tip-box { display: block; }

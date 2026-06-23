@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS } from './constants.js';
 
+// ---- ツールチップ ----
+function Tip({ text, children }) {
+  return (
+    <span className="tip-wrap">
+      {children}
+      <span className="tip-box">{text}</span>
+    </span>
+  );
+}
+
 const riceTotal = (p) => p.rice.reduce((s, r) => s + r.count, 0);
 const ricePts = (p) => p.rice.reduce((s, r) => s + r.count * r.quality, 0);
 const fieldName = (f, fields) => `田${fields.findIndex((x) => x.id === f.id) + 1}`;
@@ -42,19 +52,21 @@ function FieldCard({ f, idx }) {
     <div className={`field-card field-card--${f.status}${f.overripe > 0 ? ' overripe' : ''}`}>
       <div className="field-card-header">
         <span className="field-card-num">田{idx + 1}</span>
-        {isEmpty && <span className="field-badge badge--empty">{f.tilled ? '🚜耕済' : '空き'}</span>}
-        {isPlanted && <span className="field-badge badge--planted">育成中</span>}
-        {isMature && <span className="field-badge badge--mature">{f.overripe > 0 ? '⚠過熟' : '収穫可'}</span>}
+        {isEmpty && <span className="field-badge badge--empty" title={f.tilled ? '耕済み：次に植える作物が品質+1でスタート' : '空き田：植え付けか土づくりが可能'}>{f.tilled ? '🚜耕済' : '空き'}</span>}
+        {isPlanted && <span className="field-badge badge--planted" title="育成中：成長が必要ラウンド数に達すると収穫可になる">育成中</span>}
+        {isMature && <span className="field-badge badge--mature" title={f.overripe > 0 ? `過熟：放置${f.overripe}Rで品質-1（並まで）。早めに収穫を` : '収穫可：働き手1=通常量・2=豊作量'}>{f.overripe > 0 ? '⚠過熟' : '収穫可'}</span>}
       </div>
 
       {!isEmpty && (
         <div className="field-variety">
           <span style={{ fontWeight: 'bold' }}>{f.variety}</span>
-          <span className="field-quality" style={{ color: QUALITY_COLOR[f.quality] }}>
+          <span className="field-quality" style={{ color: QUALITY_COLOR[f.quality] }}
+            title={`品質（勝利点）：並1点・上質2点・特上3点\n品質肥料（働き手1・堆肥or俵1）で+1できる`}>
             {QUALITY_LABEL[f.quality]}
           </span>
           <span className="field-fert-icons">
-            {f.fertilized && '✨'}{f.growthFertilized && '🌿'}
+            {f.fertilized && <span title="品質肥料済み（この作のみ）">✨</span>}
+            {f.growthFertilized && <span title="成長肥料済み（この作のみ）">🌿</span>}
           </span>
         </div>
       )}
@@ -66,7 +78,7 @@ function FieldCard({ f, idx }) {
         </div>
       )}
 
-      <div className="field-water-row">
+      <div className="field-water-row" title="水位（0〜5）&#10;0=干ばつ・1=低水位：成長なし&#10;2〜3=最適：成長+1&#10;4=病害・5=洪水（作物消滅）&#10;毎ラウンド-1蒸発。「水を引く」で+2">
         <span className="field-water-num">💧{f.water}</span>
         <WaterBar level={f.water} />
       </div>
@@ -82,11 +94,11 @@ function PlayerPanel({ p, isCurrent, isMe }) {
         <span className="rank">{RANK_LABELS[p.rank]}</span>
       </div>
       <div className="stats">
-        <span>俵{riceTotal(p)}（{ricePts(p)}pt）</span>
-        <span>評判{p.reputation}</span>
-        <span>働き手{p.workers - p.workersUsed}/{p.workers}</span>
+        <span title="俵の総数（通貨兼勝利点）&#10;並1点・上質2点・特上3点で最終計算">俵{riceTotal(p)}（{ricePts(p)}pt）</span>
+        <span title="第二の通貨&#10;増：上質/特上収穫+1・献上+2・藁仕事+1&#10;減：並を1回に4俵以上出荷-1・維持費未払いで離脱-1&#10;使途：道具/牛/倉の支払い・位階昇進・最終点">評判{p.reputation}</span>
+        <span title={`働き手（固定リソース）&#10;残り使用数/総数&#10;毎ターン配置して使い回す。ターン後に手元へ戻る&#10;増員：年度末のみ・1人4俵。維持費：1人1俵/年`}>働き手{p.workers - p.workersUsed}/{p.workers}</span>
       </div>
-      <div className="rice">
+      <div className="rice" title="俵の等級内訳&#10;並1点 / 上質2点 / 特上3点（最終得点換算）">
         並{p.rice[0].count} / 上質{p.rice[1].count} / 特上{p.rice[2].count}
       </div>
       <div className="field-section-label">田（{p.fields.length}/{p.landLimit}）</div>
@@ -95,19 +107,19 @@ function PlayerPanel({ p, isCurrent, isMe }) {
       </div>
       <div className="badges">
         荒れ地：{p.wildlands.map((w, i) => (
-          <span key={w.id} className="chip">
+          <span key={w.id} className="chip" title="荒れ地の開墾ゲージ&#10;働き手1でゲージ+1（道具+1・牛+1）&#10;ゲージ3で田1枚が完成する">
             荒{i + 1}（{w.gauge}/3）
           </span>
         ))}
-        {p.tools.plow && <span className="tag">道具</span>}
-        {p.tools.ox && <span className="tag">牛</span>}
-        {p.tools.barn && <span className="tag">倉</span>}
-        {p.tools.canal && <span className="tag">水路</span>}
-        {p.tools.tank && <span className="tag">水桶🪣{p.waterReserve > 0 ? `×${p.waterReserve}` : ''}</span>}
-        {p.seedlings > 0 && <span className="tag">苗×{p.seedlings}</span>}
-        {p.compost > 0 && <span className="tag">堆肥×{p.compost}</span>}
-        {p.donatedThisYear && <span className="tag">献上済</span>}
-        {p.strawworkThisYear && <span className="tag">藁済</span>}
+        {p.tools.plow && <span className="tag" title="鉄製農具（8俵/評判4で購入）&#10;効果：開墾ゲージ+1・収穫+1俵">道具</span>}
+        {p.tools.ox && <span className="tag" title="牛（16俵/評判6で購入）&#10;効果：開墾ゲージ+1・植え付けコスト-1俵">牛</span>}
+        {p.tools.barn && <span className="tag" title="倉（6俵/評判3で購入）&#10;効果：年度末の保管ロス半減・ネズミ被害1/4に軽減">倉</span>}
+        {p.tools.canal && <span className="tag" title="水路：働き手1で2か所の田に同時に水位+2">水路</span>}
+        {p.tools.tank && <span className="tag" title="水桶：水プールに追加量をストックできる">水桶🪣{p.waterReserve > 0 ? `×${p.waterReserve}` : ''}</span>}
+        {p.seedlings > 0 && <span className="tag" title="育苗ストック&#10;植え付け時に苗1消費 → 成長+1状態でスタート">苗×{p.seedlings}</span>}
+        {p.compost > 0 && <span className="tag" title="堆肥ストック&#10;肥料使用時に俵の代わりに自動消費（堆肥優先）">堆肥×{p.compost}</span>}
+        {p.donatedThisYear && <span className="tag" title="今年の献上は済み（年1回まで）">献上済</span>}
+        {p.strawworkThisYear && <span className="tag" title="今年の藁仕事は済み（年1回まで）">藁済</span>}
       </div>
     </div>
   );
@@ -329,32 +341,62 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     <div className="act">
       <p>働き手 残り {remaining}/{me.workers}</p>
       <div className="menu">
-        <button disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })}>🌱 植え付け{!canPlant ? '(春夏)' : ''}</button>
-        <button disabled={remaining < 1} onClick={() => setSel({ kind: 'irrigate' })}>💧 水を引く</button>
-        {me.tools.canal && <button disabled={remaining < 1 || me.fields.filter((f) => f.water < 5).length < 2} onClick={() => setSel({ kind: 'canal1' })}>🌊 水路（2か所）</button>}
-        <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertQ' })}>✨ 品質肥料</button>
-        <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })}>🌿 成長肥料</button>
-        <button disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })}>⛏️ 開墾</button>
-        <button disabled={remaining < 1 || matures.length === 0} onClick={() => setSel({ kind: 'harvest' })}>🌾 収穫</button>
-        <button disabled={remaining < 2 || me.donatedThisYear} onClick={() => setSel({ kind: 'donate' })}>🎁 献上</button>
-        <button onClick={() => setSel({ kind: 'buy' })}>🛒 購入</button>
-        <button disabled={!aw || remaining < 2} onClick={() => run(() => moves.migrantWork())}>💪 出稼ぎ{!aw ? '(秋冬)' : ''}</button>
-        <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.raiseSeedling())}>🌿 育苗{!aw ? '(秋冬)' : ''}</button>
-        <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
-        <button disabled={!aw || remaining < 2 || me.strawworkThisYear} onClick={() => run(() => moves.strawWork())}>🪢 藁仕事{!aw ? '(秋冬)' : ''}</button>
-        <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.makeCompost())}>🍂 堆肥作り{!aw ? '(秋冬)' : ''}</button>
+        <Tip text={'働き手1・春夏限定\n空き田に品種を選んで植える\n苗があれば成長+1、耕済みなら品質+1でスタート\n品種コスト：野良稲0・早稲1・中稲2・晩稲2俵'}>
+          <button disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })}>🌱 植え付け{!canPlant ? '(春夏)' : ''}</button>
+        </Tip>
+        <Tip text={'働き手1・コストなし・通年\n対象の田の水位+2\n最適水位は2〜3。5で洪水（作物消滅）'}>
+          <button disabled={remaining < 1} onClick={() => setSel({ kind: 'irrigate' })}>💧 水を引く</button>
+        </Tip>
+        {me.tools.canal && (
+          <Tip text={'働き手1・水路が必要\n2か所の田に同時に水位+2できる'}>
+            <button disabled={remaining < 1 || me.fields.filter((f) => f.water < 5).length < 2} onClick={() => setSel({ kind: 'canal1' })}>🌊 水路（2か所）</button>
+          </Tip>
+        )}
+        <Tip text={'働き手1・堆肥1 or 俵1\n育成中の田の品質+1（品質上限まで）\n上質→特上にするには品質上限の高い品種が必要'}>
+          <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertQ' })}>✨ 品質肥料</button>
+        </Tip>
+        <Tip text={'働き手1・堆肥1 or 俵1\n育成中の田の成長+1（各田1回まで）\n収穫まであと少しというときに便利'}>
+          <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })}>🌿 成長肥料</button>
+        </Tip>
+        <Tip text={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}>
+          <button disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })}>⛏️ 開墾</button>
+        </Tip>
+        <Tip text={'働き手1〜2・通年\n成熟した田から俵を得る\n働き手1=通常量、2=豊作量\n道具があれば+1俵。過熟すると品質が落ちる'}>
+          <button disabled={remaining < 1 || matures.length === 0} onClick={() => setSel({ kind: 'harvest' })}>🌾 収穫</button>
+        </Tip>
+        <Tip text={'働き手2・年1回\n上質or特上の俵を1俵納める\n→ 評判+2\n評判を一気に稼ぐ重要な手段'}>
+          <button disabled={remaining < 2 || me.donatedThisYear} onClick={() => setSel({ kind: 'donate' })}>🎁 献上</button>
+        </Tip>
+        <Tip text={'働き手不要・通年\n道具/牛/倉を購入する\n俵払い or 評判払いを選べる（評判払いが割安）\n道具8俵/評判4・牛16俵/評判6・倉6俵/評判3'}>
+          <button onClick={() => setSel({ kind: 'buy' })}>🛒 購入</button>
+        </Tip>
+        <Tip text={'働き手2・秋冬限定\n並俵を2俵獲得する\n農閑期の収入源。手が詰まったときの詰み回避に'}>
+          <button disabled={!aw || remaining < 2} onClick={() => run(() => moves.migrantWork())}>💪 出稼ぎ{!aw ? '(秋冬)' : ''}</button>
+        </Tip>
+        <Tip text={'働き手1・秋冬限定\n苗+1をストック\n翌春以降の植え付け時に苗1を消費すると\n成長+1の状態でスタートできる'}>
+          <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.raiseSeedling())}>🌾 育苗{!aw ? '(秋冬)' : ''}</button>
+        </Tip>
+        <Tip text={'働き手1・秋冬限定\n空き田を耕す（耕済みマークが付く）\nその田に次に植える作物が品質+1でスタート\n（1回分・植えたら効果は消える）'}>
+          <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
+        </Tip>
+        <Tip text={'働き手2・秋冬限定・年1回\n評判+1\n量産型のプレイヤーが評判を補う手段'}>
+          <button disabled={!aw || remaining < 2 || me.strawworkThisYear} onClick={() => run(() => moves.strawWork())}>🪢 藁仕事{!aw ? '(秋冬)' : ''}</button>
+        </Tip>
+        <Tip text={'働き手1・秋冬限定\n堆肥+2をストック\n堆肥は肥料使用時に俵の代わりに自動消費（堆肥優先）\n俵を節約しながら品質/成長肥料を使える'}>
+          <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.makeCompost())}>🍂 堆肥作り{!aw ? '(秋冬)' : ''}</button>
+        </Tip>
         <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
-        <button
-          disabled={G.seasonIdx !== 1 || remaining < 1 || me.reputation < 1 || opponents.every((op) => op.fields.every((f) => f.water <= 0))}
-          onClick={() => setSel({ kind: 'waterTheft1' })}
-          style={{ background: '#e8f4fb', borderColor: '#90cce8' }}
-          title="夏限定・評判-1・相手の田-2/自分の田+2"
-        >💧 水の横取り{G.seasonIdx !== 1 ? '(夏)' : ''}（評判-1）</button>
+        <Tip text={'働き手1・夏限定・評判-1\n相手の田の水位-2、自分の田の水位+2\n交渉・妨害の手段（評判が必要）'}>
+          <button
+            disabled={G.seasonIdx !== 1 || remaining < 1 || me.reputation < 1 || opponents.every((op) => op.fields.every((f) => f.water <= 0))}
+            onClick={() => setSel({ kind: 'waterTheft1' })}
+            style={{ background: '#e8f4fb', borderColor: '#90cce8' }}
+          >💧 水の横取り{G.seasonIdx !== 1 ? '(夏)' : ''}（評判-1）</button>
+        </Tip>
       </div>
-      <button className="done" onClick={() => moves.doneTurn()}>行動終了（次のプレイヤーへ）</button>
-      <p style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>
-        [dbg] playerDone={JSON.stringify(G.playerDone)} stage={G.stage} me={playerID} current={ctx.currentPlayer}
-      </p>
+      <Tip text={'残りの働き手を返して手番を終える\n次のプレイヤーへターンが移る'}>
+        <button className="done" onClick={() => moves.doneTurn()}>行動終了（次のプレイヤーへ）</button>
+      </Tip>
     </div>
   );
 }
@@ -389,18 +431,21 @@ function YearEndPanel({ G, me, moves }) {
       )}
 
       <div className="ye-section">雇用（現在{me.workers}人）：
-        {[0, 1, 2, 3].map((n) => {
-          const cost = hireCostFor(me.workers, n);
-          return (
-            <button key={n} className={hire === n ? 'on' : ''} disabled={n > 0 && riceTotal(me) < cost}
-              onClick={() => setHire(n)}>
-              {n}人{n > 0 ? `(-${cost}俵)` : ''}
-            </button>
-          );
-        })}
+        <span title="年度末のみ増員可。雇うと毎年維持費1俵/人がかかる。リストラ不可。来年の田の数に合わせて計画的に">
+          {[0, 1, 2, 3].map((n) => {
+            const cost = hireCostFor(me.workers, n);
+            return (
+              <button key={n} className={hire === n ? 'on' : ''} disabled={n > 0 && riceTotal(me) < cost}
+                onClick={() => setHire(n)}>
+                {n}人{n > 0 ? `(-${cost}俵)` : ''}
+              </button>
+            );
+          })}
+        </span>
       </div>
       <div className="ye-section">昇進：
-        <button className={rank ? 'on' : ''} disabled={!canRank} onClick={() => setRank(!rank)}>
+        <button className={rank ? 'on' : ''} disabled={!canRank} onClick={() => setRank(!rank)}
+          title={`位階を上げると土地上限+2枚・荒れ地+2枚が増える\n昇進コスト（評判）：${RANK_COSTS.join(' / ')}（逓増）\n評判を使い切るか、道具/最終点に残すかの判断`}>
           {canRank ? `${RANK_LABELS[me.rank + 1]}へ（評判-${RANK_COSTS[me.rank]}）` : '不可'}
         </button>
       </div>
