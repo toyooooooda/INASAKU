@@ -131,6 +131,9 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
 }
 .hand-card-use:hover:not(:disabled) { background: #a07830; }
 .hand-card-use:disabled { opacity: 0.4; cursor: default; }
+.hand-card-warn { font-size: 10px; color: #b03000; font-weight: bold; }
+.hand-card-pay { display: flex; gap: 4px; margin-top: 4px; }
+.hand-card-pay .hand-card-use { flex: 1; margin-top: 0; padding: 3px 4px; }
 .hand-card--event { border-color: #d08060; background: #fff8f0; }
 .hand-card--event .hand-card-name { color: #8b3000; }
 .hand-card--event .hand-card-use { background: #d07040; }

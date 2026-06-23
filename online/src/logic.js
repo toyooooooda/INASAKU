@@ -193,6 +193,18 @@ export function doGrowthPhase(G) {
   G.cloudyThisRound = false;
 }
 
+// 冬に入ったら、未収穫の稲（育成中・成熟）をすべて失う。秋までに収穫させる。
+function clearCropsForWinter(G) {
+  G.players.forEach((p) => p.fields.forEach((f) => {
+    if (f.status === 'planted' || f.status === 'mature') {
+      const lost = f.variety;
+      Object.assign(f, createField(f.id));
+      f.water = 0;
+      addLog(G, `${p.name}の${lost}が冬を越せず失われた（冬は収穫不可）`);
+    }
+  }));
+}
+
 // ===== ラウンド進行（最終プレイヤーの手番終了時に呼ぶ）=====
 // 成長 → 季節/ラウンド進行。年が終われば年度末の自動処理を実行し stage='yearEnd'。
 export function endOfRound(G, random) {
@@ -222,6 +234,8 @@ export function endOfRound(G, random) {
 
     if (G.seasonIdx < 3) {
       G.seasonIdx += 1;
+      // 冬入り（秋→冬）：未収穫の稲はすべて失われる（冬は収穫不可）
+      if (G.seasonIdx === 3) clearCropsForWinter(G);
     } else {
       // 冬R2終了 → 年度末（最終年以外）
       runYearEndAuto(G, random);

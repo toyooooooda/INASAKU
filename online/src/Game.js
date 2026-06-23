@@ -310,33 +310,57 @@ export const HojoSuiden = {
       },
     },
 
-    // ---- 手札カードを使う（働き手不要）----
-    // fieldId は成長肥料など対象選択が必要なカード用
-    playCard: ({ G, playerID }, handIdx, fieldId) => {
+    // ---- 手札カードを使う（コスト：俵1 または 働き手1）----
+    // fieldId: 対象選択が必要なカード用 / pay: 'rice' | 'worker'
+    playCard: ({ G, playerID }, handIdx, fieldId, pay) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'action') return INVALID_MOVE;
       if (!p.hand || handIdx < 0 || handIdx >= p.hand.length) return INVALID_MOVE;
       if (!G.cardDiscard) G.cardDiscard = [];
-      const card = p.hand.splice(handIdx, 1)[0];
+      const card = p.hand[handIdx];
 
+      // --- 効果が成立するか事前検証（成立しなければコストを取らない）---
+      let target = null;
       if (card.id === 'growth_fert') {
-        // カード版：アクションの once-per-field フラグとは独立（自然上限のみ）
-        const f = fieldId && p.fields.find((x) => x.id === fieldId);
-        if (!f || f.status !== 'planted' || f.growth >= f.requiredGrowth) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
-        f.growth = Math.min(f.growth + 1, f.requiredGrowth);
-        if (f.growth >= f.requiredGrowth) f.status = 'mature';
-        addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 成長+1（${f.growth}/${f.requiredGrowth}）`);
+        target = fieldId && p.fields.find((x) => x.id === fieldId);
+        if (!target || target.status !== 'planted' || target.growth >= target.requiredGrowth) return INVALID_MOVE;
+      } else if (card.id === 'quality_fert') {
+        target = fieldId && p.fields.find((x) => x.id === fieldId);
+        const maxQ = target && (VARIETIES[target.variety]?.maxQuality ?? 3);
+        if (!target || target.status !== 'planted' || target.quality >= maxQ) return INVALID_MOVE;
+      } else if (card.id === 'growth_all') {
+        if (!p.fields.some((f) => f.status === 'planted')) return INVALID_MOVE;
+      } else if (card.id === 'strawwork') {
+        if (p.strawworkThisYear) return INVALID_MOVE;
+      }
+      // seedling_card / water_all / water_drought / flood_all / drought_all は常に成立
+
+      // --- コスト支払い（俵1 or 働き手1）---
+      if (pay === 'worker') {
+        if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+        p.workersUsed += 1;
+      } else if (pay === 'rice') {
+        if (!payRice(p, 1)) return INVALID_MOVE;
+      } else {
+        return INVALID_MOVE;
+      }
+      const payLabel = pay === 'worker' ? '働き手1' : '俵1';
+
+      // --- 効果適用 ---
+      p.hand.splice(handIdx, 1);
+      if (card.id === 'growth_fert') {
+        target.growth = Math.min(target.growth + 1, target.requiredGrowth);
+        if (target.growth >= target.requiredGrowth) target.status = 'mature';
+        addLog(G, `${p.name}：[${card.name}](${payLabel})→田${p.fields.indexOf(target) + 1} 成長+1（${target.growth}/${target.requiredGrowth}）`);
 
       } else if (card.id === 'quality_fert') {
-        const f = fieldId && p.fields.find((x) => x.id === fieldId);
-        const maxQ = f && (VARIETIES[f.variety]?.maxQuality ?? 3);
-        if (!f || f.status !== 'planted' || f.quality >= maxQ) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
-        f.quality = Math.min(f.quality + 1, maxQ);
-        addLog(G, `${p.name}：[${card.name}]→田${p.fields.indexOf(f) + 1} 品質+1`);
+        const maxQ = VARIETIES[target.variety]?.maxQuality ?? 3;
+        target.quality = Math.min(target.quality + 1, maxQ);
+        addLog(G, `${p.name}：[${card.name}](${payLabel})→田${p.fields.indexOf(target) + 1} 品質+1`);
 
       } else if (card.id === 'seedling_card') {
         p.seedlings += 1;
-        addLog(G, `${p.name}：[${card.name}]→苗+1（計${p.seedlings}・次の植付で成長+1/コスト-1）`);
+        addLog(G, `${p.name}：[${card.name}](${payLabel})→苗+1（計${p.seedlings}・次の植付で成長+1/コスト-1）`);
 
       } else if (card.id === 'growth_all') {
         let n = 0;
@@ -347,25 +371,34 @@ export const HojoSuiden = {
             n += 1;
           }
         });
-        addLog(G, `${p.name}：【${card.name}】→育成中の${n}枚の田 成長+1`);
+        addLog(G, `${p.name}：【${card.name}】(${payLabel})→育成中の${n}枚の田 成長+1`);
 
       } else if (card.id === 'water_all') {
         // 慈雨：全員の全田 水位+1
         G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.min(5, f.water + 1); }));
-        addLog(G, `${p.name}が【${card.name}】を発動！ → 全員の全田 水位+1`);
-
-      } else if (card.id === 'strawwork') {
-        if (p.strawworkThisYear) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
-        p.reputation += 1; p.strawworkThisYear = true;
-        addLog(G, `${p.name}：[${card.name}]→評判+1（計${p.reputation}）`);
+        addLog(G, `${p.name}が【${card.name}】を発動！(${payLabel}) → 全員の全田 水位+1`);
 
       } else if (card.id === 'water_drought') {
         G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.max(0, f.water - 1); }));
-        addLog(G, `${p.name}が【${card.name}】を発動！ → 全員の全田 水位-1`);
+        addLog(G, `${p.name}が【${card.name}】を発動！(${payLabel}) → 全員の全田 水位-1`);
+
+      } else if (card.id === 'flood_all') {
+        // 大洪水：全員の全田を水位5（次の成長で稲が流出）
+        G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = 5; }));
+        addLog(G, `${p.name}が【${card.name}】を発動！(${payLabel}) → 全員の全田 水位5（洪水）`);
+
+      } else if (card.id === 'drought_all') {
+        // 大干ばつ：全員の全田を水位0（成長停止）
+        G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = 0; }));
+        addLog(G, `${p.name}が【${card.name}】を発動！(${payLabel}) → 全員の全田 水位0（干ばつ）`);
+
+      } else if (card.id === 'strawwork') {
+        p.reputation += 1; p.strawworkThisYear = true;
+        addLog(G, `${p.name}：[${card.name}](${payLabel})→評判+1（計${p.reputation}）`);
       }
 
       G.cardDiscard.push(card);
-      addEvent(G, 'play_card', playerID, { card: { id: card.id, fieldId } });
+      addEvent(G, 'play_card', playerID, { card: { id: card.id, fieldId, pay } });
     },
 
     // ---- 水の横取り（夏限定・働き手1・評判-1）相手の田-2/自分の田+2 ----

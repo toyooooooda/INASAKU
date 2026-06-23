@@ -59,6 +59,9 @@ export const HAND_CARDS = [
   { id: 'water_all',     name: '慈雨',     type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位+1',               count: 5 },
   { id: 'strawwork',     name: '藁仕事',   type: 'action', needsTarget: false, desc: '評判+1（年1回制限あり）',            count: 10 },
   { id: 'water_drought', name: '水枯れ',   type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位-1（自分も含む）', count: 5 },
+  // 強力な災害イベント（各1枚だけ）
+  { id: 'flood_all',     name: '大洪水',   type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位5（稲が流出）',     count: 1 },
+  { id: 'drought_all',   name: '大干ばつ', type: 'event',  needsTarget: false, desc: '⚡全員の全田：水位0（成長停止）',     count: 1 },
 ];
 
 // ダイス目 → 効果（☀️1-2 / 💧3-4 / 🌬️5 / ✨6）
