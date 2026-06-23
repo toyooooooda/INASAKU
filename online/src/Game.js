@@ -305,7 +305,8 @@ export const HojoSuiden = {
         if (!p.hand) p.hand = [];
         const card = G.cardDeck.pop();
         p.hand.push(card);
-        addLog(G, `${p.name}：カードを引いた→【${card.name}】（${card.type === 'event' ? '⚡イベント' : 'アクション'}）`);
+        // 引いたカードの中身は公開しない（手札は本人のみ把握）
+        addLog(G, `${p.name}：山札からカードを1枚引いた`);
         addEvent(G, 'draw_card', playerID, { card });
       },
     },
