@@ -61,6 +61,7 @@ export function createPlayer(i, name) {
     workers: 3, workersUsed: 0,
     tools: { plow: false, ox: false, barn: false, canal: false, tank: false },
     seedlings: 0, compost: 0,
+    hand: [],        // 手札カード
     waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,

@@ -2,7 +2,7 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField,
@@ -31,6 +31,9 @@ export const HojoSuiden = {
       totalYears: GAME_YEARS,
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
+      cardDeck: HAND_CARDS.flatMap(c => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc }))),
+      cardDeckShuffled: false,
+      cardDiscard: [],
       roundPlayOrder: order,
       playerDone: new Array(ctx.numPlayers).fill(false),
       yearEndDone: new Array(ctx.numPlayers).fill(false),
@@ -94,13 +97,14 @@ export const HojoSuiden = {
       const f = p.fields.find((x) => x.id === fieldId);
       const def = VARIETIES[variety];
       if (!f || f.status !== 'empty' || !def) return INVALID_MOVE;
-      const seedCost = Math.max(0, def.cost - (p.tools.ox ? 1 : 0));
+      const useNae = !!useSeedling && p.seedlings > 0;
+      // 苗使用で植付コスト-1（牛との重複可・最低0俵）
+      const seedCost = Math.max(0, def.cost - (p.tools.ox ? 1 : 0) - (useNae ? 1 : 0));
       if (totalRiceCount(p) < seedCost) return INVALID_MOVE;
       payRice(p, seedCost);
-      const useNae = !!useSeedling && p.seedlings > 0;
       const tilledBonus = f.tilled ? 1 : 0;
       f.status = 'planted'; f.variety = variety;
-      f.growth = useNae ? 2 : 0; f.requiredGrowth = def.requiredGrowth; // 苗=成長+2で開始
+      f.growth = useNae ? 1 : 0; f.requiredGrowth = def.requiredGrowth; // 苗=成長+1で開始（コスト-1も付与）
       f.quality = clamp(def.baseQuality + tilledBonus, 1, def.maxQuality);
       f.fertilized = false; f.growthFertilized = false; f.tilled = false;
       if (useNae) p.seedlings -= 1;
@@ -276,6 +280,62 @@ export const HojoSuiden = {
       p.compost += 2; p.workersUsed += 1;
       addLog(G, `${p.name}：堆肥作り→堆肥+2（計${p.compost}）`);
       addEvent(G, 'compost', playerID, { compost: p.compost });
+    },
+
+    // ---- カードを引く（秋冬・働き手1）----
+    // アクションカード→手札へ。イベントカード→即発動（全員影響）。
+    drawCard: ({ G, playerID, random }) => {
+      const p = G.players[Number(playerID)];
+      if (G.stage !== 'action' || G.seasonIdx < 2) return INVALID_MOVE;
+      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+      // デッキが未シャッフルなら今シャッフル
+      if (!G.cardDeckShuffled) {
+        G.cardDeck = random.Shuffle([...G.cardDeck]);
+        G.cardDeckShuffled = true;
+      }
+      // デッキが空なら捨て札から再構築
+      if (G.cardDeck.length === 0) {
+        if (G.cardDiscard.length === 0) return INVALID_MOVE;
+        G.cardDeck = random.Shuffle([...G.cardDiscard]);
+        G.cardDiscard = [];
+      }
+      p.workersUsed += 1;
+      const card = G.cardDeck.pop();
+      if (card.type === 'event') {
+        // イベントカード：即発動
+        if (card.id === 'water_drought') {
+          G.players.forEach((pl) => pl.fields.forEach((f) => { f.water = Math.max(0, f.water - 1); }));
+          addLog(G, `${p.name}が引いた【${card.name}】→ 全員の全田 水位-1！`);
+        }
+        G.cardDiscard.push(card);
+        addEvent(G, 'draw_card', playerID, { card, triggered: true });
+      } else {
+        if (!p.hand) p.hand = [];
+        p.hand.push(card);
+        addLog(G, `${p.name}：カードを引く→【${card.name}】を手札に追加`);
+        addEvent(G, 'draw_card', playerID, { card, triggered: false });
+      }
+    },
+
+    // ---- 手札カードを使う（働き手不要）----
+    playCard: ({ G, playerID }, handIdx) => {
+      const p = G.players[Number(playerID)];
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (!p.hand || handIdx < 0 || handIdx >= p.hand.length) return INVALID_MOVE;
+      const card = p.hand.splice(handIdx, 1)[0];
+      if (card.id === 'compost') {
+        p.compost += 2;
+        addLog(G, `${p.name}：[${card.name}]使用→堆肥+2（計${p.compost}）`);
+      } else if (card.id === 'seedling') {
+        p.seedlings += 1;
+        addLog(G, `${p.name}：[${card.name}]使用→苗+1（計${p.seedlings}）`);
+      } else if (card.id === 'strawwork') {
+        if (p.strawworkThisYear) { p.hand.splice(handIdx, 0, card); return INVALID_MOVE; }
+        p.reputation += 1; p.strawworkThisYear = true;
+        addLog(G, `${p.name}：[${card.name}]使用→評判+1（計${p.reputation}）`);
+      }
+      G.cardDiscard.push(card);
+      addEvent(G, 'play_card', playerID, { card: { id: card.id } });
     },
 
     // ---- 水の横取り（夏限定・働き手1・評判-1）相手の田-2/自分の田+2 ----

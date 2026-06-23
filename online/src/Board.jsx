@@ -116,7 +116,8 @@ function PlayerPanel({ p, isCurrent, isMe }) {
         {p.tools.barn && <span className="tag" title="倉（6俵/評判3で購入）&#10;効果：年度末の保管ロス半減・ネズミ被害1/4に軽減">倉</span>}
         {p.tools.canal && <span className="tag" title="水路：働き手1で2か所の田に同時に水位+2">水路</span>}
         {p.tools.tank && <span className="tag" title="水桶：水プールに追加量をストックできる">水桶🪣{p.waterReserve > 0 ? `×${p.waterReserve}` : ''}</span>}
-        {p.seedlings > 0 && <span className="tag" title="育苗ストック&#10;植え付け時に苗1消費 → 成長+1状態でスタート">苗×{p.seedlings}</span>}
+        {p.hand && p.hand.length > 0 && <span className="tag" title="手札カード（働き手不要で使える）">🃏×{p.hand.length}</span>}
+        {p.seedlings > 0 && <span className="tag" title="育苗ストック&#10;植え付け時に苗1消費 → 成長+1かつ植付コスト-1">苗×{p.seedlings}</span>}
         {p.compost > 0 && <span className="tag" title="堆肥ストック&#10;肥料使用時に俵の代わりに自動消費（堆肥優先）">堆肥×{p.compost}</span>}
         {p.donatedThisYear && <span className="tag" title="今年の献上は済み（年1回まで）">献上済</span>}
         {p.strawworkThisYear && <span className="tag" title="今年の藁仕事は済み（年1回まで）">藁済</span>}
@@ -172,7 +173,7 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     return (
       <div className="act">
         <p>苗を使う？（ストック{me.seedlings}）</p>
-        <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, true))}>🌱 苗を使う（成長+2）</button>
+        <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, true))}>🌱 苗を使う（成長+1・植付-1俵）</button>
         <button onClick={() => run(() => moves.plant(sel.fieldId, sel.variety, false))}>そのまま植える</button>
         <button className="back" onClick={reset}>← 戻る</button>
       </div>
@@ -341,7 +342,7 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     <div className="act">
       <p>働き手 残り {remaining}/{me.workers}</p>
       <div className="menu">
-        <Tip text={'働き手1・春夏限定\n空き田に品種を選んで植える\n苗があれば成長+1、耕済みなら品質+1でスタート\n品種コスト：野良稲0・早稲1・中稲2・晩稲2俵'}>
+        <Tip text={'働き手1・春夏限定\n空き田に品種を選んで植える\n苗を使う→成長+1かつ植付コスト-1\n耕済みなら品質+1でスタート\n品種コスト：野良稲0・早稲1・中稲2・晩稲2俵'}>
           <button disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })}>🌱 植え付け{!canPlant ? '(春夏)' : ''}</button>
         </Tip>
         <Tip text={'働き手1・コストなし・通年\n対象の田の水位+2\n最適水位は2〜3。5で洪水（作物消滅）'}>
@@ -373,17 +374,11 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
         <Tip text={'働き手2・秋冬限定\n並俵を2俵獲得する\n農閑期の収入源。手が詰まったときの詰み回避に'}>
           <button disabled={!aw || remaining < 2} onClick={() => run(() => moves.migrantWork())}>💪 出稼ぎ{!aw ? '(秋冬)' : ''}</button>
         </Tip>
-        <Tip text={'働き手1・秋冬限定\n苗+1をストック\n翌春以降の植え付け時に苗1を消費すると\n成長+1の状態でスタートできる'}>
-          <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.raiseSeedling())}>🌾 育苗{!aw ? '(秋冬)' : ''}</button>
-        </Tip>
         <Tip text={'働き手1・秋冬限定\n空き田を耕す（耕済みマークが付く）\nその田に次に植える作物が品質+1でスタート\n（1回分・植えたら効果は消える）'}>
           <button disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })}>🚜 土づくり{!aw ? '(秋冬)' : ''}</button>
         </Tip>
-        <Tip text={'働き手2・秋冬限定・年1回\n評判+1\n量産型のプレイヤーが評判を補う手段'}>
-          <button disabled={!aw || remaining < 2 || me.strawworkThisYear} onClick={() => run(() => moves.strawWork())}>🪢 藁仕事{!aw ? '(秋冬)' : ''}</button>
-        </Tip>
-        <Tip text={'働き手1・秋冬限定\n堆肥+2をストック\n堆肥は肥料使用時に俵の代わりに自動消費（堆肥優先）\n俵を節約しながら品質/成長肥料を使える'}>
-          <button disabled={!aw || remaining < 1} onClick={() => run(() => moves.makeCompost())}>🍂 堆肥作り{!aw ? '(秋冬)' : ''}</button>
+        <Tip text={'働き手1・秋冬限定\nデッキからカードを1枚引く\nアクションカード（堆肥作り/育苗/藁仕事）→ 手札へ\nイベントカード（水枯れなど）→ 即発動！'}>
+          <button disabled={!aw || remaining < 1 || (G.cardDeck?.length === 0 && G.cardDiscard?.length === 0)} onClick={() => run(() => moves.drawCard())}>📋 カードを引く{!aw ? '(秋冬)' : ''}</button>
         </Tip>
         <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
         <Tip text={'働き手1・夏限定・評判-1\n相手の田の水位-2、自分の田の水位+2\n交渉・妨害の手段（評判が必要）'}>
@@ -394,6 +389,28 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
           >💧 水の横取り{G.seasonIdx !== 1 ? '(夏)' : ''}（評判-1）</button>
         </Tip>
       </div>
+      {me.hand && me.hand.length > 0 && (
+        <div className="hand-section">
+          <p className="hand-title">🃏 手札（働き手不要で使える）</p>
+          <div className="hand-cards">
+            {me.hand.map((card, i) => {
+              const disabled = card.id === 'strawwork' && me.strawworkThisYear;
+              return (
+                <div key={i} className="hand-card">
+                  <div className="hand-card-name">{card.name}</div>
+                  <div className="hand-card-desc">{card.desc}</div>
+                  <button
+                    className="hand-card-use"
+                    disabled={disabled}
+                    onClick={() => moves.playCard(i)}
+                    title={disabled ? '今年の藁仕事は済み（年1回）' : `${card.name}の効果を発動する`}
+                  >使う</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <Tip text={'残りの働き手を返して手番を終える\n次のプレイヤーへターンが移る'}>
         <button className="done" onClick={() => moves.doneTurn()}>行動終了（次のプレイヤーへ）</button>
       </Tip>
@@ -586,6 +603,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
           </span>
         )}
         <span>{G.stage === 'yearEnd' ? '📜 年度末' : '🌿 行動'}</span>
+        {G.cardDeck && <span title="手札デッキ残枚数">🃏残{G.cardDeck.length}</span>}
         <span>手番：{G.players[Number(ctx.currentPlayer)]?.name}</span>
       </header>
 

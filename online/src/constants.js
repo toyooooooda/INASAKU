@@ -43,6 +43,16 @@ export const WEATHER_CARDS = [
   { name: '豊穣の兆し', effect: 'bountiful',   desc: '全田：成長+1' },
 ];
 
+// ---- 手札カードデッキ ----
+// type: 'action' → 手札に加え、後で使用
+// type: 'event'  → 引いた瞬間に全プレイヤーへ即発動
+export const HAND_CARDS = [
+  { id: 'compost',       name: '堆肥作り', type: 'action', desc: '堆肥+2',              count: 3 },
+  { id: 'seedling',      name: '育苗',     type: 'action', desc: '苗+1',                count: 3 },
+  { id: 'strawwork',     name: '藁仕事',   type: 'action', desc: '評判+1（年1回制限）', count: 2 },
+  { id: 'water_drought', name: '水枯れ',   type: 'event',  desc: '全員の全田：水位-1',  count: 2 },
+];
+
 // ダイス目 → 効果（☀️1-2 / 💧3-4 / 🌬️5 / ✨6）
 export function diceEffect(d) {
   if (d <= 2) return { type: 'sun',  icon: '☀️', desc: '水位-1' };
