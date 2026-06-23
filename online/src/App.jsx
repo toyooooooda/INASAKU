@@ -30,6 +30,7 @@ export function App() {
   const [name, setName] = useState('');
   const [numPlayers, setNumPlayers] = useState(2);
   const [advanced, setAdvanced] = useState(false);
+  const [gameMode, setGameMode] = useState('normal');
   const [matchID, setMatchIDInput] = useState('');
   const [seat, setSeat] = useState('1');
   const [err, setErr] = useState('');
@@ -39,7 +40,7 @@ export function App() {
     if (!name.trim()) { setErr('名前を入力してください'); return; }
     setLoading(true); setErr('');
     try {
-      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers, setupData: { advanced } });
+      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers, setupData: { advanced, mode: gameMode } });
       const { playerCredentials } = await apiPost(`/games/hojo-suiden/${mid}/join`, {
         playerID: '0', playerName: name.trim(),
       });
@@ -116,6 +117,12 @@ export function App() {
             <option value={2}>2人</option>
             <option value={3}>3人</option>
             <option value={4}>4人</option>
+          </select>
+        </label>
+        <label>モード<br />
+          <select value={gameMode} onChange={e => setGameMode(e.target.value)}>
+            <option value="normal">通常（各自の田を開墾）</option>
+            <option value="territory">領地（共有の盤面を取り合う）</option>
           </select>
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

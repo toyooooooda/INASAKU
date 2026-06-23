@@ -10,6 +10,38 @@ export const RAT_OUTBREAK_CHANCE = 0.2;
 // ゲーム年数（最終年の秋冬はスキップして夏終了）
 export const GAME_YEARS = 5;
 
+// ===== 領地モード（共有盤面） =====
+export const PLAYER_COLORS = ['#d98880', '#7fb3d5', '#82c995', '#e8c25a'];
+
+// 人数で可変：2人=4×4・3〜4人=5×5
+export function makeTerritoryMap(numPlayers) {
+  const side = numPlayers <= 2 ? 4 : 5;
+  const tiles = [];
+  for (let r = 0; r < side; r++) {
+    for (let c = 0; c < side; c++) {
+      tiles.push({ id: `t${r}_${c}`, row: r, col: c, owner: null, field: null, gauge: {}, fertile: false });
+    }
+  }
+  // 中央＝肥沃地（奇数は中央＋十字、偶数は中央2×2）
+  tiles.forEach((t) => {
+    if (side % 2 === 1) {
+      const ctr = (side - 1) / 2;
+      const dr = Math.abs(t.row - ctr), dc = Math.abs(t.col - ctr);
+      if ((dr === 0 && dc === 0) || (dr + dc === 1)) t.fertile = true;
+    } else {
+      const lo = side / 2 - 1, hi = side / 2;
+      if ((t.row === lo || t.row === hi) && (t.col === lo || t.col === hi)) t.fertile = true;
+    }
+  });
+  return { side, tiles };
+}
+
+// スタート位置：対角→三隅→四隅
+export function territoryCorners(side, numPlayers) {
+  const m = side - 1;
+  return [[0, 0], [m, m], [0, m], [m, 0]].slice(0, numPlayers);
+}
+
 // unlockYear: この年から植え付け可能（省略=1年目から）。後半に上級品種を解禁。
 // repBonus: 収穫1回ごとの追加評判（上質以上のとき加算）。
 export const VARIETIES = {

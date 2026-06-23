@@ -2,10 +2,10 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS, makeTerritoryMap, territoryCorners } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
-  addLog, addEvent, createPlayer, createField,
+  addLog, addEvent, createPlayer, createField, resetField,
   drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource,
 } from './logic.js';
 
@@ -31,11 +31,14 @@ export const HojoSuiden = {
 
   setup: ({ ctx }, setupData) => {
     const advanced = !!(setupData && setupData.advanced);
+    const mode = (setupData && setupData.mode) === 'territory' ? 'territory' : 'normal';
     const order = [...Array(ctx.numPlayers).keys()].map(String);
     const G = {
       stage: 'action',
       year: 1, seasonIdx: 0, roundInSeason: 0,
       totalYears: GAME_YEARS,
+      mode,                                      // 'normal' | 'territory'
+      map: null,                                 // 領地モードの共有盤面
       advanced,                                  // 上級ルール ON/OFF
       hiddenTribute: advanced && ctx.numPlayers >= 3, // 隠し献上（3人以上）
       needClanDeal: advanced,                    // 初回 onBegin で家系をランダム配布
@@ -54,6 +57,23 @@ export const HojoSuiden = {
     };
     for (let i = 0; i < ctx.numPlayers; i++) G.players.push(createPlayer(i));
     if (advanced) addLog(G, `上級ルール ON（家系${G.hiddenTribute ? '＋隠し献上' : ''}）`);
+
+    // 領地モード：共有盤面を作り、各自を隅に1マス配置（私有の田/荒れ地は使わない）
+    if (mode === 'territory') {
+      G.map = makeTerritoryMap(ctx.numPlayers);
+      const corners = territoryCorners(G.map.side, ctx.numPlayers);
+      G.players.forEach((p, i) => {
+        p.fields = []; p.wildlands = [];
+        const [r, c] = corners[i];
+        const tile = G.map.tiles.find((t) => t.row === r && t.col === c);
+        tile.owner = i;
+        const f = createField(`${tile.id}_p${i}`);
+        f.fertile = tile.fertile;
+        tile.field = f;
+        p.fields.push(f);
+      });
+      addLog(G, `領地モード（${G.map.side}×${G.map.side}・肥沃地あり）`);
+    }
     return G;
   },
 
@@ -206,9 +226,10 @@ export const HojoSuiden = {
       addEvent(G, 'growth_fert', playerID, { growth: f.growth });
     },
 
-    // ---- 開墾（通年）----
+    // ---- 開墾（通年・通常モード）----
     reclaim: ({ G, playerID }, wildlandId) => {
       const p = G.players[Number(playerID)];
+      if (G.mode === 'territory') return INVALID_MOVE; // 領地モードは claimTile を使う
       if (G.stage !== 'action') return INVALID_MOVE;
       if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
       const w = p.wildlands.find((x) => x.id === wildlandId);
@@ -227,6 +248,38 @@ export const HojoSuiden = {
       addEvent(G, 'reclaim', playerID, { gauge: w.gauge });
     },
 
+    // ---- 領地モードの開拓（ゲージ式競争・働き手1＋俵1）----
+    // 自分の領地に隣接する原野にだけ投資でき、先に gauge3 にした人が取得。
+    claimTile: ({ G, playerID }, tileId) => {
+      const p = G.players[Number(playerID)];
+      const idx = Number(playerID);
+      if (G.mode !== 'territory' || !G.map) return INVALID_MOVE;
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+      const tile = G.map.tiles.find((t) => t.id === tileId);
+      if (!tile || tile.owner !== null) return INVALID_MOVE;
+      // 隣接（自分の領地マスに上下左右で接する）
+      const adj = G.map.tiles.some((t) => t.owner === idx
+        && Math.abs(t.row - tile.row) + Math.abs(t.col - tile.col) === 1);
+      if (!adj) return INVALID_MOVE;
+      if (totalRiceCount(p) < 1) return INVALID_MOVE;
+      payRice(p, 1); p.workersUsed += 1;
+      const clanP = (G.advanced && p.clan === 'pioneer') ? 1 : 0;
+      const inc = 1 + (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0) + clanP;
+      tile.gauge[idx] = (tile.gauge[idx] || 0) + inc;
+      addLog(G, `${p.name}：開拓 (${tile.row + 1},${tile.col + 1}) ゲージ+${inc}→${tile.gauge[idx]}/3${tile.fertile ? '（肥沃地）' : ''}`);
+      if (tile.gauge[idx] >= 3) {
+        tile.owner = idx;
+        const f = createField(`${tile.id}_p${idx}`);
+        f.fertile = tile.fertile;
+        tile.field = f;
+        p.fields.push(f);
+        tile.gauge = {}; // 競争相手の投資もリセット
+        addLog(G, `${p.name}：マス(${tile.row + 1},${tile.col + 1})を獲得！${tile.fertile ? '★肥沃地' : ''}（計${p.fields.length}マス）`);
+      }
+      addEvent(G, 'claim_tile', playerID, { tileId, gauge: tile.gauge[idx] || 0, owned: tile.owner === idx });
+    },
+
     // ---- 収穫（通年・働き手1 or 2）----
     harvest: ({ G, playerID }, fieldId, workers) => {
       const p = G.players[Number(playerID)];
@@ -237,7 +290,8 @@ export const HojoSuiden = {
       if (!f || f.status !== 'mature') return INVALID_MOVE;
       const def = VARIETIES[f.variety];
       const plowBonus = p.tools.plow ? 1 : 0;
-      const count = (w >= 2 ? def.harvestMax : def.harvestMin) + plowBonus;
+      const fertileBonus = f.fertile ? 1 : 0; // 肥沃地（領地モード中央）
+      const count = (w >= 2 ? def.harvestMax : def.harvestMin) + plowBonus + fertileBonus;
       const q = clamp(f.quality, 1, 3);
       const repBonus = (def && def.repBonus) || 0;
       p.rice[q - 1].count += count; p.workersUsed += w;
@@ -246,7 +300,7 @@ export const HojoSuiden = {
         addLog(G, `${p.name}：${f.variety}収穫 並${count}俵`);
         if (count >= 4) { p.reputation = Math.max(0, p.reputation - 1); addLog(G, `${p.name}：並の大量収穫→評判-1`); }
       }
-      const oldWater = f.water; Object.assign(f, createField(f.id)); f.water = Math.max(0, oldWater - 1);
+      const oldWater = f.water; resetField(f); f.water = Math.max(0, oldWater - 1);
       addEvent(G, 'harvest', playerID, { variety: def ? f.variety : null, count, quality: q, workers: w });
     },
 
@@ -493,15 +547,18 @@ export const HojoSuiden = {
         const cost = Math.max(0, RANK_COSTS[p.rank] - ((G.advanced && p.clan === 'noble') ? 1 : 0)); // 名門：昇進-1
         if (p.reputation >= cost) {
           p.reputation -= cost; p.rank += 1; p.landLimit += 2;
-          const remaining = [];
-          for (const w of p.wildlands) {
-            if (w.gauge >= 3 && p.fields.length < p.landLimit) { p.fields.push(createField(`f${p.id}_d${p.fields.length}`)); }
-            else remaining.push(w);
+          // 領地モードは盤面が上限なので荒れ地処理はしない（昇進は租減免と評判消費のみ）
+          if (G.mode !== 'territory') {
+            const remaining = [];
+            for (const w of p.wildlands) {
+              if (w.gauge >= 3 && p.fields.length < p.landLimit) { p.fields.push(createField(`f${p.id}_d${p.fields.length}`)); }
+              else remaining.push(w);
+            }
+            p.wildlands = remaining;
+            const base = `w${p.id}_r${p.rank}`;
+            p.wildlands.push({ id: `${base}_0`, gauge: 0 }, { id: `${base}_1`, gauge: 0 });
           }
-          p.wildlands = remaining;
-          const base = `w${p.id}_r${p.rank}`;
-          p.wildlands.push({ id: `${base}_0`, gauge: 0 }, { id: `${base}_1`, gauge: 0 });
-          addLog(G, `昇進：${p.name}→${RANK_LABELS[p.rank]}（評判-${cost}・上限${p.landLimit}）`);
+          addLog(G, `昇進：${p.name}→${RANK_LABELS[p.rank]}（評判-${cost}）`);
         }
       }
       // 隠し献上（上級・3人以上）：俵を伏せて予約。この場では引かない＝俵数で悟られない。

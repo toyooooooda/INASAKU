@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS, CLANS } from './constants.js';
+import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS, CLANS, PLAYER_COLORS } from './constants.js';
 
 const CLAN_BY_ID = Object.fromEntries(CLANS.map((c) => [c.id, c]));
 
@@ -88,7 +88,7 @@ function FieldCard({ f, idx }) {
   );
 }
 
-function PlayerPanel({ p, isCurrent, isMe }) {
+function PlayerPanel({ p, isCurrent, isMe, territory }) {
   return (
     <div className={`panel ${isCurrent ? 'current' : ''} ${isMe ? 'me' : ''}`}>
       <div className="phead">
@@ -108,16 +108,22 @@ function PlayerPanel({ p, isCurrent, isMe }) {
       <div className="rice" title="俵の等級内訳&#10;並1点 / 上質2点 / 特上3点（最終得点換算）">
         並{p.rice[0].count} / 上質{p.rice[1].count} / 特上{p.rice[2].count}
       </div>
-      <div className="field-section-label">田（{p.fields.length}/{p.landLimit}）</div>
-      <div className="field-grid">
-        {p.fields.map((f, i) => <FieldCard key={f.id} f={f} idx={i} />)}
-      </div>
+      {territory ? (
+        <div className="field-section-label">田 {p.fields.length}マス（盤面参照）</div>
+      ) : (
+        <>
+          <div className="field-section-label">田（{p.fields.length}/{p.landLimit}）</div>
+          <div className="field-grid">
+            {p.fields.map((f, i) => <FieldCard key={f.id} f={f} idx={i} />)}
+          </div>
+        </>
+      )}
       <div className="badges">
-        荒れ地：{p.wildlands.map((w, i) => (
+        {!territory && <>荒れ地：{p.wildlands.map((w, i) => (
           <span key={w.id} className="chip" title="荒れ地の開墾ゲージ&#10;働き手1でゲージ+1（道具+1・牛+1）&#10;ゲージ3で田1枚が完成する">
             荒{i + 1}（{w.gauge}/3）
           </span>
-        ))}
+        ))}</>}
         {p.tools.plow && <span className="tag" title="鉄製農具（8俵/評判4で購入）&#10;効果：開墾ゲージ+1・収穫+1俵">道具</span>}
         {p.tools.ox && <span className="tag" title="牛（16俵/評判6で購入）&#10;効果：開墾ゲージ+1・植え付けコスト-1俵">牛</span>}
         {p.tools.barn && <span className="tag" title="倉（6俵/評判3で購入）&#10;効果：年度末の保管ロス半減・ネズミ被害1/4に軽減">倉</span>}
@@ -290,6 +296,29 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
     );
   }
 
+  if (sel?.kind === 'claim' && G.map) {
+    const mine = G.map.tiles.filter((t) => t.owner === Number(me.id));
+    const claimable = G.map.tiles.filter((t) => t.owner === null
+      && mine.some((o) => Math.abs(o.row - t.row) + Math.abs(o.col - t.col) === 1));
+    return (
+      <div className="act">
+        <p>🚩 開拓する原野（隣接マスのみ・俵1）：</p>
+        {claimable.map((t) => {
+          const myG = t.gauge[Number(me.id)] || 0;
+          const rivals = Object.entries(t.gauge).filter(([k]) => Number(k) !== Number(me.id) && t.gauge[k] > 0);
+          return (
+            <button key={t.id} onClick={() => run(() => moves.claimTile(t.id))}>
+              ({t.row + 1},{t.col + 1}){t.fertile ? '★肥沃' : ''}　自分{myG}/3
+              {rivals.length > 0 ? `　競合:${rivals.map(([k, v]) => `P${Number(k) + 1}=${v}`).join(',')}` : ''}
+            </button>
+          );
+        })}
+        {claimable.length === 0 && <p>開拓できる隣接マスなし</p>}
+        <button className="back" onClick={reset}>← 戻る</button>
+      </div>
+    );
+  }
+
   if (sel?.kind === 'reclaim') {
     return (
       <div className="act">
@@ -370,9 +399,15 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
         <Tip text={'働き手1・堆肥1 or 俵1\n育成中の田の成長+1（各田1回まで）\n収穫まであと少しというときに便利'}>
           <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })}>🌿 成長肥料</button>
         </Tip>
-        <Tip text={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}>
-          <button disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })}>⛏️ 開墾</button>
-        </Tip>
+        {G.mode === 'territory' ? (
+          <Tip text={'働き手1＋俵1・通年\n自分の領地に隣接する原野を開拓\nゲージ式：先に3にした人がマスを獲得（競争）\n道具/牛/開墾の民で加速。中央は肥沃地'}>
+            <button disabled={remaining < 1 || riceTotal(me) < 1} onClick={() => setSel({ kind: 'claim' })}>🚩 開拓（マス取り）</button>
+          </Tip>
+        ) : (
+          <Tip text={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}>
+            <button disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })}>⛏️ 開墾</button>
+          </Tip>
+        )}
         <Tip text={'働き手1〜2・通年\n成熟した田から俵を得る\n働き手1=通常量、2=豊作量\n道具があれば+1俵。過熟すると品質が落ちる'}>
           <button disabled={remaining < 1 || matures.length === 0} onClick={() => setSel({ kind: 'harvest' })}>🌾 収穫</button>
         </Tip>
@@ -654,6 +689,58 @@ function WeatherOverlay({ G, onClose }) {
   );
 }
 
+// ---- 領地モードの共有盤面 ----
+function TerritoryTile({ tile, players, meIdx }) {
+  const owned = tile.owner !== null;
+  const f = tile.field;
+  const bg = owned ? PLAYER_COLORS[tile.owner % PLAYER_COLORS.length] : '#efe9da';
+  const mine = tile.owner === meIdx;
+  const gauges = Object.entries(tile.gauge || {}).filter(([, v]) => v > 0);
+  return (
+    <div className="tt-tile" style={{ background: bg, outline: mine ? '2px solid #333' : 'none' }}
+      title={owned ? `${players[tile.owner]?.name}の田` : '原野'}>
+      <div className="tt-coord">{tile.fertile ? '★' : ''}{tile.row + 1},{tile.col + 1}</div>
+      {owned && f ? (
+        <div className="tt-field">
+          {f.status === 'empty' ? <span className="tt-empty">空</span>
+            : <>
+              <span className="tt-var">{f.variety?.[0] ?? ''}</span>
+              {f.status === 'planted' && <span className="tt-g">{f.growth}/{f.requiredGrowth}</span>}
+              {f.status === 'mature' && <span className="tt-m">穫</span>}
+              <span className="tt-w">💧{f.water}</span>
+            </>}
+        </div>
+      ) : (
+        <div className="tt-gauge">
+          {gauges.length === 0 ? <span className="tt-wild">原野</span>
+            : gauges.map(([k, v]) => <span key={k} style={{ color: PLAYER_COLORS[Number(k) % PLAYER_COLORS.length] }}>P{Number(k) + 1}:{v}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TerritoryMap({ G, playerID }) {
+  if (!G.map) return null;
+  const { side, tiles } = G.map;
+  const meIdx = playerID != null ? Number(playerID) : -1;
+  return (
+    <div className="tt-wrap">
+      <div className="tt-legend">
+        🗺️ 領地（{side}×{side}・★=肥沃地 収穫+1）：
+        {G.players.map((p, i) => (
+          <span key={p.id} className="tt-legend-item">
+            <span className="tt-swatch" style={{ background: PLAYER_COLORS[i % PLAYER_COLORS.length] }} />{p.name}
+          </span>
+        ))}
+      </div>
+      <div className="tt-grid" style={{ gridTemplateColumns: `repeat(${side}, 1fr)` }}>
+        {tiles.map((t) => <TerritoryTile key={t.id} tile={t} players={G.players} meIdx={meIdx} />)}
+      </div>
+    </div>
+  );
+}
+
 export function Board({ G, ctx, moves, events, playerID, matchData }) {
   const me = playerID != null ? G.players[Number(playerID)] : null;
   const myTurn = playerID != null && ctx.currentPlayer === playerID;
@@ -716,9 +803,11 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         </div>
       )}
 
+      {G.mode === 'territory' && <TerritoryMap G={G} playerID={playerID} />}
+
       <div className="players">
         {G.players.map((p, i) => (
-          <PlayerPanel key={p.id} p={p} isCurrent={Number(ctx.currentPlayer) === i} isMe={Number(playerID) === i} />
+          <PlayerPanel key={p.id} p={p} isCurrent={Number(ctx.currentPlayer) === i} isMe={Number(playerID) === i} territory={G.mode === 'territory'} />
         ))}
       </div>
 

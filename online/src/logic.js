@@ -49,8 +49,16 @@ export function createField(id) {
   return {
     id, status: 'empty', variety: null, growth: 0, requiredGrowth: 0,
     quality: 1, water: 2, fertilized: false, growthFertilized: false,
-    overripe: 0, tilled: false,
+    overripe: 0, tilled: false, fertile: false,
   };
+}
+
+// 田を空に戻す（肥沃フラグは保持）。収穫・洪水流出・冬越し失敗で使用。
+export function resetField(f) {
+  const fert = f.fertile;
+  Object.assign(f, createField(f.id));
+  f.fertile = fert;
+  return f;
 }
 
 export function createPlayer(i, name) {
@@ -187,7 +195,7 @@ export function doGrowthPhase(G) {
     f.water = clamp(f.water - evap, 0, 5);
     if (mod === -99) {
       addLog(G, `${p.name}の${f.variety}が洪水で流出！`);
-      Object.assign(f, createField(f.id)); f.water = 0; return;
+      resetField(f); f.water = 0; return;
     }
     f.growth += mod;
     if (f.growth >= f.requiredGrowth) { f.status = 'mature'; f.overripe = 0; addLog(G, `${p.name}の${f.variety}が成熟！（${QUALITY_LABEL[f.quality]}）`); }
@@ -200,7 +208,7 @@ function clearCropsForWinter(G) {
   G.players.forEach((p) => p.fields.forEach((f) => {
     if (f.status === 'planted' || f.status === 'mature') {
       const lost = f.variety;
-      Object.assign(f, createField(f.id));
+      resetField(f);
       f.water = 0;
       addLog(G, `${p.name}の${lost}が冬を越せず失われた（冬は収穫不可）`);
     }
