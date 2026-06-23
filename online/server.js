@@ -16,6 +16,7 @@ const server = Server({
     'http://localhost:5173',
     ...(FRONTEND_URL ? [FRONTEND_URL] : []),
   ],
+  authenticateCredentials: () => true,
 });
 
 server.run(PORT, () => {

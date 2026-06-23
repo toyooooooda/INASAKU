@@ -113,7 +113,7 @@ function PlayerPanel({ p, isCurrent, isMe }) {
   );
 }
 
-function ActionPanel({ G, me, moves, events }) {
+function ActionPanel({ G, me, moves }) {
   const [sel, setSel] = useState(null); // {kind, variety, fieldId}
   const remaining = me.workers - me.workersUsed;
   const canPlant = G.seasonIdx <= 1;
@@ -351,7 +351,7 @@ function ActionPanel({ G, me, moves, events }) {
           title="夏限定・評判-1・相手の田-2/自分の田+2"
         >💧 水の横取り{G.seasonIdx !== 1 ? '(夏)' : ''}（評判-1）</button>
       </div>
-      <button className="done" onClick={() => events.endTurn()}>行動終了（次のプレイヤーへ）</button>
+      <button className="done" onClick={() => moves.doneTurn()}>行動終了（次のプレイヤーへ）</button>
     </div>
   );
 }
@@ -557,7 +557,7 @@ export function Board({ G, ctx, moves, events, playerID }) {
         {!me ? <p>観戦中（席が割り当てられていません）</p>
           : !myTurn ? <p>他のプレイヤーの手番です…</p>
             : G.stage === 'yearEnd' ? <YearEndPanel G={G} me={me} moves={moves} />
-              : <ActionPanel G={G} me={me} moves={moves} events={events} />}
+              : <ActionPanel G={G} me={me} moves={moves} />}
       </div>
 
       <div className="log">

@@ -32,6 +32,8 @@ export const HojoSuiden = {
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
       roundPlayOrder: order,
+      playerDone: new Array(ctx.numPlayers).fill(false),
+      yearEndDone: new Array(ctx.numPlayers).fill(false),
       yearEndPlayerIdx: 0, gameOver: false, finalScores: null,
       players: [], log: ['=== 豊穣の水田（オンライン版）開始 ==='],
       events: [], yearSnapshots: [],
@@ -41,17 +43,27 @@ export const HojoSuiden = {
   },
 
   turn: {
+    endIf: ({ G, ctx }) => {
+      if (G.stage === 'action') return G.playerDone[Number(ctx.currentPlayer)] === true;
+      if (G.stage === 'yearEnd') return G.yearEndDone[Number(ctx.currentPlayer)] === true;
+      return false;
+    },
     order: {
       first: () => 0,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
       playOrder: ({ G }) => G.roundPlayOrder,
     },
     onBegin: ({ G, ctx, random }) => {
+      // 手番開始時にフラグをリセット
+      const idx = Number(ctx.currentPlayer);
+      G.playerDone[idx] = false;
+      G.yearEndDone[idx] = false;
+
       if (G.stage !== 'action') return;
       // ラウンド先頭で天候を引いて全員に適用
       if (ctx.playOrderPos === 0) drawAndApplyWeather(G, random);
       // 手番プレイヤーの働き手をリセット
-      const p = G.players[Number(ctx.currentPlayer)];
+      const p = G.players[idx];
       p.workersUsed = 0;
       // 春（R1）に大雪ペナルティを消費
       if (G.seasonIdx === 0 && G.roundInSeason === 0 && p.penaltyNextSpring > 0) {
@@ -300,11 +312,14 @@ export const HojoSuiden = {
       addEvent(G, 'buy_tool', playerID, { item, payment });
     },
 
-    // ---- 行動終了（手番を次へ）----
-    endTurn: ({ events }) => { events.endTurn(); },
+    // ---- 行動終了（手番を次へ）---- events.endTurn()の代わりにフラグで通知
+    doneTurn: ({ G, playerID }) => {
+      if (G.stage !== 'action') return INVALID_MOVE;
+      G.playerDone[Number(playerID)] = true;
+    },
 
     // ---- 年度末の決定（雇用＋昇進を一括）→ 手番終了 ----
-    yearEndDecision: ({ G, playerID, events }, hireCount, doRankUp) => {
+    yearEndDecision: ({ G, playerID }, hireCount, doRankUp) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'yearEnd') return INVALID_MOVE;
       const hc = clamp(hireCount | 0, 0, 3);
@@ -329,7 +344,7 @@ export const HojoSuiden = {
         }
       }
       addEvent(G, 'year_end_decision', playerID, { hireCount: hc, rankUp: !!doRankUp });
-      events.endTurn();
+      G.yearEndDone[Number(playerID)] = true;
     },
 
     // 名前を設定（URL の &name= から自動呼び出し）
