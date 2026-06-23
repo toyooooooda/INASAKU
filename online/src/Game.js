@@ -44,8 +44,9 @@ export const HojoSuiden = {
 
   turn: {
     endIf: ({ G, ctx }) => {
-      if (G.stage === 'action') return G.playerDone[Number(ctx.currentPlayer)] === true;
-      if (G.stage === 'yearEnd') return G.yearEndDone[Number(ctx.currentPlayer)] === true;
+      const idx = Number(ctx.currentPlayer);
+      if (G.stage === 'action') return !!(G.playerDone && G.playerDone[idx]);
+      if (G.stage === 'yearEnd') return !!(G.yearEndDone && G.yearEndDone[idx]);
       return false;
     },
     order: {
@@ -54,8 +55,10 @@ export const HojoSuiden = {
       playOrder: ({ G }) => G.roundPlayOrder,
     },
     onBegin: ({ G, ctx, random }) => {
-      // 手番開始時にフラグをリセット
+      // 手番開始時にフラグをリセット（配列がなければ初期化）
       const idx = Number(ctx.currentPlayer);
+      if (!G.playerDone) G.playerDone = new Array(G.players.length).fill(false);
+      if (!G.yearEndDone) G.yearEndDone = new Array(G.players.length).fill(false);
       G.playerDone[idx] = false;
       G.yearEndDone[idx] = false;
 
@@ -315,6 +318,7 @@ export const HojoSuiden = {
     // ---- 行動終了（手番を次へ）---- events.endTurn()の代わりにフラグで通知
     doneTurn: ({ G, playerID }) => {
       if (G.stage !== 'action') return INVALID_MOVE;
+      if (!G.playerDone) G.playerDone = new Array(G.players.length).fill(false);
       G.playerDone[Number(playerID)] = true;
     },
 
@@ -344,6 +348,7 @@ export const HojoSuiden = {
         }
       }
       addEvent(G, 'year_end_decision', playerID, { hireCount: hc, rankUp: !!doRankUp });
+      if (!G.yearEndDone) G.yearEndDone = new Array(G.players.length).fill(false);
       G.yearEndDone[Number(playerID)] = true;
     },
 
