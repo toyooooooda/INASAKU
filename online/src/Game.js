@@ -284,26 +284,30 @@ export const HojoSuiden = {
 
     // ---- カードを引く（秋冬・働き手1）----
     // 全カード（アクション・イベント問わず）手札へ。使用はplayCardで。
-    drawCard: ({ G, playerID, random }) => {
-      const p = G.players[Number(playerID)];
-      if (G.stage !== 'action' || G.seasonIdx < 2) return INVALID_MOVE;
-      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
-      // 古いゲーム状態への防御初期化
-      if (!G.cardDeck) G.cardDeck = HAND_CARDS.flatMap((c) => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc })));
-      if (!G.cardDiscard) G.cardDiscard = [];
-      if (!G.cardDeckShuffled) { G.cardDeck = random.Shuffle([...G.cardDeck]); G.cardDeckShuffled = true; }
-      // デッキ切れなら捨て札からシャッフルして再補充
-      if (G.cardDeck.length === 0) {
-        if (G.cardDiscard.length === 0) return INVALID_MOVE;
-        G.cardDeck = random.Shuffle([...G.cardDiscard]);
-        G.cardDiscard = [];
-      }
-      p.workersUsed += 1;
-      if (!p.hand) p.hand = [];
-      const card = G.cardDeck.pop();
-      p.hand.push(card);
-      addLog(G, `${p.name}：カードを引いた→【${card.name}】（${card.type === 'event' ? '⚡イベント' : 'アクション'}）`);
-      addEvent(G, 'draw_card', playerID, { card });
+    // random.Shuffle を使うため client:false でサーバー権威実行（クライアント楽観実行を無効化）
+    drawCard: {
+      client: false,
+      move: ({ G, playerID, random }) => {
+        const p = G.players[Number(playerID)];
+        if (G.stage !== 'action' || G.seasonIdx < 2) return INVALID_MOVE;
+        if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+        // 古いゲーム状態への防御初期化
+        if (!G.cardDeck) G.cardDeck = HAND_CARDS.flatMap((c) => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc })));
+        if (!G.cardDiscard) G.cardDiscard = [];
+        if (!G.cardDeckShuffled) { G.cardDeck = random.Shuffle([...G.cardDeck]); G.cardDeckShuffled = true; }
+        // デッキ切れなら捨て札からシャッフルして再補充
+        if (G.cardDeck.length === 0) {
+          if (G.cardDiscard.length === 0) return INVALID_MOVE;
+          G.cardDeck = random.Shuffle([...G.cardDiscard]);
+          G.cardDiscard = [];
+        }
+        p.workersUsed += 1;
+        if (!p.hand) p.hand = [];
+        const card = G.cardDeck.pop();
+        p.hand.push(card);
+        addLog(G, `${p.name}：カードを引いた→【${card.name}】（${card.type === 'event' ? '⚡イベント' : 'アクション'}）`);
+        addEvent(G, 'draw_card', playerID, { card });
+      },
     },
 
     // ---- 手札カードを使う（働き手不要）----
