@@ -29,6 +29,7 @@ export function App() {
   const [mode, setMode] = useState('top');      // top | create | join
   const [name, setName] = useState('');
   const [numPlayers, setNumPlayers] = useState(2);
+  const [advanced, setAdvanced] = useState(false);
   const [matchID, setMatchIDInput] = useState('');
   const [seat, setSeat] = useState('1');
   const [err, setErr] = useState('');
@@ -38,7 +39,7 @@ export function App() {
     if (!name.trim()) { setErr('名前を入力してください'); return; }
     setLoading(true); setErr('');
     try {
-      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers });
+      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers, setupData: { advanced } });
       const { playerCredentials } = await apiPost(`/games/hojo-suiden/${mid}/join`, {
         playerID: '0', playerName: name.trim(),
       });
@@ -117,6 +118,14 @@ export function App() {
             <option value={4}>4人</option>
           </select>
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input type="checkbox" checked={advanced} onChange={e => setAdvanced(e.target.checked)} style={{ width: 'auto', margin: 0 }} />
+          上級ルールを有効にする
+        </label>
+        <p className="hint" style={{ marginTop: 0 }}>
+          上級ルール：家系（各自に違う初期能力）。<br/>
+          3人以上なら「隠し献上」（年度末に俵を伏せて出し、最多が評判+3）も有効に。
+        </p>
         {err && <p style={{ color: 'red' }}>{err}</p>}
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button className="lobby-btn" onClick={handleCreate} disabled={loading}>

@@ -23,6 +23,15 @@ export const VARIETIES = {
   献上米: { requiredGrowth: 4, baseQuality: 3, maxQuality: 3, cost: 4, harvestMin: 2, harvestMax: 3, repBonus: 1, unlockYear: 4, desc: '4R・特上スタート・4俵・収穫2〜3・収穫で評判+1' },
 };
 
+// ===== 上級ルール =====
+// 家系（非対称スタート能力）。上級ルール時、席順に配られる。
+export const CLANS = [
+  { id: 'pioneer',  name: '開墾の民',   desc: '開墾ゲージ +1（毎回）' },
+  { id: 'water',    name: '水利の一族', desc: '「水を引く」が +1 多い' },
+  { id: 'merchant', name: '商いの家',   desc: '道具・牛・倉が -2俵' },
+  { id: 'noble',    name: '名門',       desc: '初期評判 +2／昇進コスト -1' },
+];
+
 export const TOOLS = {
   plow:  { name: '道具', riceCost: 8,  repCost: 4, desc: '開墾+1 / 収穫+1俵' },
   ox:    { name: '牛',   riceCost: 16, repCost: 6, desc: '開墾+1 / 植付-1俵' },

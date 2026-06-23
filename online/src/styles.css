@@ -83,6 +83,13 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
 .ye-row.ye-bad { color: #c0392b; font-weight: bold; }
 .ye-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e8c86a; font-weight: bold; color: #333; }
 .ye-section { margin: 6px 0; }
+.clan-tag { background: #efe2c8; color: #7a5a2a; border-radius: 4px; padding: 0 5px; font-size: 10px; margin-right: 6px; }
+.ye-tribute { background: #fff3f0; border: 1px solid #e0b0a0; border-radius: 8px; padding: 8px 10px; }
+.ye-tribute-title { font-weight: bold; color: #8b3000; font-size: 12px; margin-bottom: 6px; }
+.ye-tribute-row { display: flex; align-items: center; gap: 10px; }
+.ye-tribute-row button { width: 32px; font-weight: bold; }
+.ye-tribute-val { font-weight: bold; min-width: 48px; text-align: center; }
+.ye-tribute-note { font-size: 10px; color: #888; margin-top: 5px; }
 
 /* 天候オーバーレイ */
 .weather-overlay {

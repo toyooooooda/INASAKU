@@ -2,7 +2,7 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField,
@@ -23,12 +23,15 @@ export const HojoSuiden = {
   minPlayers: 2,
   maxPlayers: 4,
 
-  setup: ({ ctx }) => {
+  setup: ({ ctx }, setupData) => {
+    const advanced = !!(setupData && setupData.advanced);
     const order = [...Array(ctx.numPlayers).keys()].map(String);
     const G = {
       stage: 'action',
       year: 1, seasonIdx: 0, roundInSeason: 0,
       totalYears: GAME_YEARS,
+      advanced,                                  // 上級ルール ON/OFF
+      hiddenTribute: advanced && ctx.numPlayers >= 3, // 隠し献上（3人以上）
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
       cardDeck: HAND_CARDS.flatMap(c => Array.from({ length: c.count }, () => ({ id: c.id, name: c.name, type: c.type, desc: c.desc }))),
@@ -42,6 +45,15 @@ export const HojoSuiden = {
       events: [], yearSnapshots: [],
     };
     for (let i = 0; i < ctx.numPlayers; i++) G.players.push(createPlayer(i));
+    // 上級ルール：家系を席順に配布
+    if (advanced) {
+      G.players.forEach((p, i) => {
+        const clan = CLANS[i % CLANS.length];
+        p.clan = clan.id;
+        if (clan.id === 'noble') p.reputation += 2; // 名門：初期評判+2
+      });
+      addLog(G, `上級ルール ON（家系${G.hiddenTribute ? '＋隠し献上' : ''}）`);
+    }
     return G;
   },
 
@@ -122,7 +134,8 @@ export const HojoSuiden = {
       const f = p.fields.find((x) => x.id === fieldId);
       if (!f) return INVALID_MOVE;
       const src = consumeWaterSource(G, p);
-      const gain = src !== 'empty' ? 2 : 1;
+      const clanW = (G.advanced && p.clan === 'water') ? 1 : 0; // 水利の一族
+      const gain = (src !== 'empty' ? 2 : 1) + clanW;
       f.water = clamp(f.water + gain, 0, 5);
       p.workersUsed += 1;
       const note = src === 'pool' ? '' : src === 'tank' ? '（水桶）' : '（プール不足・+1）';
@@ -184,7 +197,8 @@ export const HojoSuiden = {
       if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
       const w = p.wildlands.find((x) => x.id === wildlandId);
       if (!w || w.gauge >= 3) return INVALID_MOVE;
-      const bonus = (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0);
+      const clanP = (G.advanced && p.clan === 'pioneer') ? 1 : 0; // 開墾の民
+      const bonus = (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0) + clanP;
       const before = w.gauge; w.gauge = Math.min(3, w.gauge + 1 + bonus); p.workersUsed += 1;
       addLog(G, `${p.name}：開墾 +${w.gauge - before} →${w.gauge}/3`);
       if (w.gauge >= 3) {
@@ -434,10 +448,11 @@ export const HojoSuiden = {
       if (G.stage !== 'action') return INVALID_MOVE;
       const s = TOOLS[item];
       if (!s || p.tools[item]) return INVALID_MOVE;
-      if (payment === 'rice') { if (totalRiceCount(p) < s.riceCost) return INVALID_MOVE; payRice(p, s.riceCost); }
+      const riceCost = Math.max(0, s.riceCost - ((G.advanced && p.clan === 'merchant') ? 2 : 0)); // 商いの家
+      if (payment === 'rice') { if (totalRiceCount(p) < riceCost) return INVALID_MOVE; payRice(p, riceCost); }
       else { if (p.reputation < s.repCost) return INVALID_MOVE; p.reputation -= s.repCost; }
       p.tools[item] = true;
-      addLog(G, `${p.name}：${s.name}を購入（${payment === 'rice' ? s.riceCost + '俵' : '評判' + s.repCost}）`);
+      addLog(G, `${p.name}：${s.name}を購入（${payment === 'rice' ? riceCost + '俵' : '評判' + s.repCost}）`);
       addEvent(G, 'buy_tool', playerID, { item, payment });
     },
 
@@ -448,8 +463,8 @@ export const HojoSuiden = {
       G.playerDone[Number(playerID)] = true;
     },
 
-    // ---- 年度末の決定（雇用＋昇進を一括）→ 手番終了 ----
-    yearEndDecision: ({ G, playerID }, hireCount, doRankUp) => {
+    // ---- 年度末の決定（雇用＋昇進＋隠し献上の予約）→ 手番終了 ----
+    yearEndDecision: ({ G, playerID }, hireCount, doRankUp, tribute) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'yearEnd') return INVALID_MOVE;
       const hc = clamp(hireCount | 0, 0, 3);
@@ -459,7 +474,7 @@ export const HojoSuiden = {
         if (totalRiceCount(p) >= cost) { payRice(p, cost); p.workers += hc; addLog(G, `雇用：${p.name} +${hc}人（-${cost}俵）`); }
       }
       if (doRankUp && p.rank < RANK_COSTS.length) {
-        const cost = RANK_COSTS[p.rank];
+        const cost = Math.max(0, RANK_COSTS[p.rank] - ((G.advanced && p.clan === 'noble') ? 1 : 0)); // 名門：昇進-1
         if (p.reputation >= cost) {
           p.reputation -= cost; p.rank += 1; p.landLimit += 2;
           const remaining = [];
@@ -473,7 +488,13 @@ export const HojoSuiden = {
           addLog(G, `昇進：${p.name}→${RANK_LABELS[p.rank]}（評判-${cost}・上限${p.landLimit}）`);
         }
       }
-      addEvent(G, 'year_end_decision', playerID, { hireCount: hc, rankUp: !!doRankUp });
+      // 隠し献上（上級・3人以上）：俵を伏せて予約。この場では引かない＝俵数で悟られない。
+      if (G.hiddenTribute) {
+        const t = clamp((tribute | 0), 0, totalRiceCount(p));
+        p.tributeCommit = t;
+        if (t > 0) addLog(G, `${p.name}：献上を予約した（額は非公開）`);
+      }
+      addEvent(G, 'year_end_decision', playerID, { hireCount: hc, rankUp: !!doRankUp, tribute: G.hiddenTribute ? (tribute | 0) : 0 });
       if (!G.yearEndDone) G.yearEndDone = new Array(G.players.length).fill(false);
       G.yearEndDone[Number(playerID)] = true;
     },

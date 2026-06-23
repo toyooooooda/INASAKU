@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS } from './constants.js';
+import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS, CLANS } from './constants.js';
+
+const CLAN_BY_ID = Object.fromEntries(CLANS.map((c) => [c.id, c]));
 
 // ---- ツールチップ ----
 function Tip({ text, children }) {
@@ -91,7 +93,12 @@ function PlayerPanel({ p, isCurrent, isMe }) {
     <div className={`panel ${isCurrent ? 'current' : ''} ${isMe ? 'me' : ''}`}>
       <div className="phead">
         <b>{isCurrent ? '▶ ' : ''}{p.name}{isMe ? '（あなた）' : ''}</b>
-        <span className="rank">{RANK_LABELS[p.rank]}</span>
+        <span className="rank">
+          {p.clan && CLAN_BY_ID[p.clan] && (
+            <span className="clan-tag" title={CLAN_BY_ID[p.clan].desc}>🏯{CLAN_BY_ID[p.clan].name}</span>
+          )}
+          {RANK_LABELS[p.rank]}
+        </span>
       </div>
       <div className="stats">
         <span title="俵の総数（通貨兼勝利点）&#10;並1点・上質2点・特上3点で最終計算">俵{riceTotal(p)}（{ricePts(p)}pt）</span>
@@ -508,8 +515,11 @@ function hireCostFor(currentWorkers, n) {
 function YearEndPanel({ G, me, moves }) {
   const [hire, setHire] = useState(0);
   const [rank, setRank] = useState(false);
+  const [tribute, setTribute] = useState(0);
   const canRank = me.rank < RANK_COSTS.length && me.reputation >= RANK_COSTS[me.rank];
   const exp = G.lastYearEndExpenses?.expenses?.find((e) => e.name === me.name);
+  const tributeMax = riceTotal(me);
+  const tributeOn = G.hiddenTribute;
   return (
     <div className="act">
       <p><b>年度末の決定</b></p>
@@ -547,7 +557,18 @@ function YearEndPanel({ G, me, moves }) {
           {canRank ? `${RANK_LABELS[me.rank + 1]}へ（評判-${RANK_COSTS[me.rank]}）` : '不可'}
         </button>
       </div>
-      <button className="done" onClick={() => moves.yearEndDecision(hire, rank)}>決定して次へ</button>
+      {tributeOn && (
+        <div className="ye-section ye-tribute">
+          <div className="ye-tribute-title">🎁 隠し献上（伏せて出す・最多が評判+3）</div>
+          <div className="ye-tribute-row">
+            <button disabled={tribute <= 0} onClick={() => setTribute((t) => Math.max(0, t - 1))}>−</button>
+            <span className="ye-tribute-val">{tribute}俵</span>
+            <button disabled={tribute >= tributeMax} onClick={() => setTribute((t) => Math.min(tributeMax, t + 1))}>＋</button>
+          </div>
+          <div className="ye-tribute-note">今は引かれません。全員の決定後にまとめて精算されます（額は他の人に見えません）。</div>
+        </div>
+      )}
+      <button className="done" onClick={() => moves.yearEndDecision(hire, rank, tribute)}>決定して次へ</button>
     </div>
   );
 }

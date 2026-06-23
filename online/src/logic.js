@@ -62,6 +62,8 @@ export function createPlayer(i, name) {
     tools: { plow: false, ox: false, barn: false, canal: false, tank: false },
     seedlings: 0, compost: 0,
     hand: [],        // 手札カード
+    clan: null,      // 家系（上級ルール）
+    tributeCommit: 0, // 隠し献上の予約量（公開時に一斉精算）
     waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,
@@ -299,8 +301,32 @@ function runYearEndAuto(G, random, { skipRent = false } = {}) {
   G.lastYearEndExpenses = { year: G.year, expenses };
 }
 
+// 隠し献上の一斉公開・精算（上級・3人以上）。予約額を今ここでまとめて引く。
+function revealTribute(G) {
+  if (!G.hiddenTribute) return;
+  if (!G.players.some((p) => (p.tributeCommit || 0) > 0)) {
+    G.players.forEach((p) => { p.tributeCommit = 0; });
+    return;
+  }
+  addLog(G, '=== 隠し献上 一斉公開！ ===');
+  let maxBid = 0;
+  const actuals = G.players.map((p) => Math.min(p.tributeCommit || 0, totalRiceCount(p)));
+  G.players.forEach((p, i) => {
+    const a = actuals[i];
+    if (a > 0) { payRice(p, a); addLog(G, `${p.name}：献上 ${a}俵`); }
+    if (a > maxBid) maxBid = a;
+  });
+  if (maxBid > 0) {
+    const winners = G.players.filter((_, i) => actuals[i] === maxBid);
+    winners.forEach((p) => { p.reputation += 3; });
+    addLog(G, `献上競争 勝者：${winners.map((p) => p.name).join('・')} → 評判+3`);
+  }
+  G.players.forEach((p) => { p.tributeCommit = 0; });
+}
+
 // ===== 年度末の対話完了後（最終プレイヤーの手番終了時に呼ぶ）=====
 export function finishYearEnd(G) {
+  revealTribute(G);
   G.players.forEach((p) => { p.donatedThisYear = false; p.strawworkThisYear = false; p.workersUsed = 0; });
   takeYearSnapshot(G);
   // 年度末は最終年の前年まで（最終年は夏終了で endOfRound から直接終わる）
