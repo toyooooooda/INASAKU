@@ -25,6 +25,8 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .tt-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
 .tt-grid { display: grid; gap: 3px; max-width: 380px; }
 .tt-tile { aspect-ratio: 1; border-radius: 5px; padding: 2px; font-size: 9px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.tt-tile.tt-click { cursor: pointer; box-shadow: 0 0 0 2px #4a8a4a inset; }
+.tt-tile.tt-click:hover { filter: brightness(1.08); }
 .tt-coord { font-size: 8px; color: rgba(0,0,0,0.5); line-height: 1; }
 .tt-field { display: flex; flex-wrap: wrap; gap: 1px; align-items: center; font-weight: bold; }
 .tt-var { font-size: 11px; }

@@ -248,7 +248,7 @@ export const HojoSuiden = {
       addEvent(G, 'reclaim', playerID, { gauge: w.gauge });
     },
 
-    // ---- 領地モードの開拓（ゲージ式競争・働き手1＋俵1）----
+    // ---- 領地モードの開拓（ゲージ式競争・働き手1）----
     // 自分の領地に隣接する原野にだけ投資でき、先に gauge3 にした人が取得。
     claimTile: ({ G, playerID }, tileId) => {
       const p = G.players[Number(playerID)];
@@ -262,8 +262,7 @@ export const HojoSuiden = {
       const adj = G.map.tiles.some((t) => t.owner === idx
         && Math.abs(t.row - tile.row) + Math.abs(t.col - tile.col) === 1);
       if (!adj) return INVALID_MOVE;
-      if (totalRiceCount(p) < 1) return INVALID_MOVE;
-      payRice(p, 1); p.workersUsed += 1;
+      p.workersUsed += 1;
       const clanP = (G.advanced && p.clan === 'pioneer') ? 1 : 0;
       const inc = 1 + (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0) + clanP;
       tile.gauge[idx] = (tile.gauge[idx] || 0) + inc;

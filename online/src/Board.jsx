@@ -139,8 +139,7 @@ function PlayerPanel({ p, isCurrent, isMe, territory }) {
   );
 }
 
-function ActionPanel({ G, me, moves, playerID, ctx }) {
-  const [sel, setSel] = useState(null); // {kind, variety, fieldId}
+function ActionPanel({ G, me, moves, playerID, ctx, sel, setSel }) {
   const remaining = me.workers - me.workersUsed;
   const canPlant = G.seasonIdx <= 1;
   const aw = G.seasonIdx >= 2; // 秋冬
@@ -162,7 +161,15 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
           return (
             <button key={name} disabled={locked || riceTotal(me) < def.cost}
               title={locked ? `${def.unlockYear}年目から解禁` : def.desc}
-              onClick={() => setSel({ kind: 'plantField', variety: name })}>
+              onClick={() => {
+                if (sel.fieldId) {
+                  // マスから直接：品種決定→苗確認 or 植付
+                  if (me.seedlings > 0) setSel({ kind: 'plantSeed', variety: name, fieldId: sel.fieldId });
+                  else run(() => moves.plant(sel.fieldId, name, false));
+                } else {
+                  setSel({ kind: 'plantField', variety: name });
+                }
+              }}>
               {locked ? `🔒 ${name}（${def.unlockYear}年目〜）` : `${name}（${def.desc}）`}
             </button>
           );
@@ -302,7 +309,7 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
       && mine.some((o) => Math.abs(o.row - t.row) + Math.abs(o.col - t.col) === 1));
     return (
       <div className="act">
-        <p>🚩 開拓する原野（隣接マスのみ・俵1）：</p>
+        <p>🚩 開拓する原野（隣接マスのみ・働き手1）：</p>
         {claimable.map((t) => {
           const myG = t.gauge[Number(me.id)] || 0;
           const rivals = Object.entries(t.gauge).filter(([k]) => Number(k) !== Number(me.id) && t.gauge[k] > 0);
@@ -400,8 +407,8 @@ function ActionPanel({ G, me, moves, playerID, ctx }) {
           <button disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })}>🌿 成長肥料</button>
         </Tip>
         {G.mode === 'territory' ? (
-          <Tip text={'働き手1＋俵1・通年\n自分の領地に隣接する原野を開拓\nゲージ式：先に3にした人がマスを獲得（競争）\n道具/牛/開墾の民で加速。中央は肥沃地'}>
-            <button disabled={remaining < 1 || riceTotal(me) < 1} onClick={() => setSel({ kind: 'claim' })}>🚩 開拓（マス取り）</button>
+          <Tip text={'働き手1・コストなし・通年\n自分の領地に隣接する原野を開拓\nゲージ式：先に3にした人がマスを獲得（競争）\n道具/牛/開墾の民で加速。中央は肥沃地\n盤面のマスを直接クリックでもOK'}>
+            <button disabled={remaining < 1} onClick={() => setSel({ kind: 'claim' })}>🚩 開拓（マス取り）</button>
           </Tip>
         ) : (
           <Tip text={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}>
@@ -690,29 +697,33 @@ function WeatherOverlay({ G, onClose }) {
 }
 
 // ---- 領地モードの共有盤面 ----
-function TerritoryTile({ tile, players, meIdx }) {
+function TerritoryTile({ tile, players, meIdx, action, onClick }) {
   const owned = tile.owner !== null;
   const f = tile.field;
   const bg = owned ? PLAYER_COLORS[tile.owner % PLAYER_COLORS.length] : '#efe9da';
   const mine = tile.owner === meIdx;
   const gauges = Object.entries(tile.gauge || {}).filter(([, v]) => v > 0);
+  const clickable = !!action;
+  const titleMap = { plant: 'クリックで植え付け', harvest: 'クリックで収穫', claim: 'クリックで開拓' };
   return (
-    <div className="tt-tile" style={{ background: bg, outline: mine ? '2px solid #333' : 'none' }}
-      title={owned ? `${players[tile.owner]?.name}の田` : '原野'}>
+    <div className={`tt-tile${clickable ? ' tt-click' : ''}`}
+      style={{ background: bg, outline: mine ? '2px solid #333' : 'none' }}
+      title={clickable ? titleMap[action] : (owned ? `${players[tile.owner]?.name}の田` : '原野')}
+      onClick={clickable ? onClick : undefined}>
       <div className="tt-coord">{tile.fertile ? '★' : ''}{tile.row + 1},{tile.col + 1}</div>
       {owned && f ? (
         <div className="tt-field">
-          {f.status === 'empty' ? <span className="tt-empty">空</span>
+          {f.status === 'empty' ? <span className="tt-empty">{action === 'plant' ? '🌱植' : '空'}</span>
             : <>
               <span className="tt-var">{f.variety?.[0] ?? ''}</span>
               {f.status === 'planted' && <span className="tt-g">{f.growth}/{f.requiredGrowth}</span>}
-              {f.status === 'mature' && <span className="tt-m">穫</span>}
+              {f.status === 'mature' && <span className="tt-m">{action === 'harvest' ? '🌾穫' : '穫'}</span>}
               <span className="tt-w">💧{f.water}</span>
             </>}
         </div>
       ) : (
         <div className="tt-gauge">
-          {gauges.length === 0 ? <span className="tt-wild">原野</span>
+          {gauges.length === 0 ? <span className="tt-wild">{action === 'claim' ? '🚩開' : '原野'}</span>
             : gauges.map(([k, v]) => <span key={k} style={{ color: PLAYER_COLORS[Number(k) % PLAYER_COLORS.length] }}>P{Number(k) + 1}:{v}</span>)}
         </div>
       )}
@@ -720,10 +731,26 @@ function TerritoryTile({ tile, players, meIdx }) {
   );
 }
 
-function TerritoryMap({ G, playerID }) {
+function TerritoryMap({ G, playerID, me, myTurn, onTile }) {
   if (!G.map) return null;
   const { side, tiles } = G.map;
   const meIdx = playerID != null ? Number(playerID) : -1;
+  const canAct = myTurn && G.stage === 'action' && me;
+  const remaining = me ? me.workers - me.workersUsed : 0;
+  // 各マスの可能アクションを判定（クリック表示用）
+  const actionFor = (t) => {
+    if (!canAct || remaining < 1) return null;
+    if (t.owner === meIdx && t.field) {
+      if (t.field.status === 'empty' && G.seasonIdx <= 1) return 'plant';
+      if (t.field.status === 'mature') return 'harvest';
+      return null;
+    }
+    if (t.owner === null) {
+      const adj = tiles.some((o) => o.owner === meIdx && Math.abs(o.row - t.row) + Math.abs(o.col - t.col) === 1);
+      return adj ? 'claim' : null;
+    }
+    return null;
+  };
   return (
     <div className="tt-wrap">
       <div className="tt-legend">
@@ -733,9 +760,14 @@ function TerritoryMap({ G, playerID }) {
             <span className="tt-swatch" style={{ background: PLAYER_COLORS[i % PLAYER_COLORS.length] }} />{p.name}
           </span>
         ))}
+        {canAct && <span style={{ color: '#888' }}>（マスをクリックで植付/収穫/開拓）</span>}
       </div>
       <div className="tt-grid" style={{ gridTemplateColumns: `repeat(${side}, 1fr)` }}>
-        {tiles.map((t) => <TerritoryTile key={t.id} tile={t} players={G.players} meIdx={meIdx} />)}
+        {tiles.map((t) => {
+          const action = actionFor(t);
+          return <TerritoryTile key={t.id} tile={t} players={G.players} meIdx={meIdx}
+            action={action} onClick={() => onTile(t, action)} />;
+        })}
       </div>
     </div>
   );
@@ -744,6 +776,18 @@ function TerritoryMap({ G, playerID }) {
 export function Board({ G, ctx, moves, events, playerID, matchData }) {
   const me = playerID != null ? G.players[Number(playerID)] : null;
   const myTurn = playerID != null && ctx.currentPlayer === playerID;
+
+  // 行動の選択状態（ActionPanel と 盤面クリックで共有）
+  const [sel, setSel] = useState(null);
+  useEffect(() => { if (!myTurn) setSel(null); }, [myTurn]);
+
+  // 盤面のマスをクリック → アクションに応じて開始
+  const onTile = (tile, action) => {
+    if (!action || !me) return;
+    if (action === 'plant') setSel({ kind: 'plant', fieldId: tile.field.id });
+    else if (action === 'harvest') setSel({ kind: 'harvestW', fieldId: tile.field.id });
+    else if (action === 'claim') moves.claimTile(tile.id);
+  };
 
   // 名前を自分の最初の手番に自動同期（matchData優先→URL params）
   const urlName = new URLSearchParams(window.location.search).get('name');
@@ -803,7 +847,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         </div>
       )}
 
-      {G.mode === 'territory' && <TerritoryMap G={G} playerID={playerID} />}
+      {G.mode === 'territory' && <TerritoryMap G={G} playerID={playerID} me={me} myTurn={myTurn} onTile={onTile} />}
 
       <div className="players">
         {G.players.map((p, i) => (
@@ -815,7 +859,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         {!me ? <p>観戦中（席が割り当てられていません）</p>
           : !myTurn ? <p>他のプレイヤーの手番です…</p>
             : G.stage === 'yearEnd' ? <YearEndPanel G={G} me={me} moves={moves} />
-              : <ActionPanel G={G} me={me} moves={moves} playerID={playerID} ctx={ctx} />}
+              : <ActionPanel G={G} me={me} moves={moves} playerID={playerID} ctx={ctx} sel={sel} setSel={setSel} />}
       </div>
 
       {me && <HandPanel G={G} me={me} moves={moves} myTurn={myTurn} />}
