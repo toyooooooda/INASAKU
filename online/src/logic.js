@@ -178,8 +178,11 @@ export function consumeWaterSource(G, p) {
 
 // ===== 成長フェーズ =====
 export function doGrowthPhase(G) {
-  const evap = G.cloudyThisRound ? 0 : 1;
-  G.players.forEach((p) => p.fields.forEach((f) => {
+  const baseEvap = G.cloudyThisRound ? 0 : 1;
+  G.players.forEach((p) => {
+    // 水利の一族：自分の田は蒸発-1（水持ちが良い）
+    const evap = (G.advanced && p.clan === 'water') ? Math.max(0, baseEvap - 1) : baseEvap;
+    p.fields.forEach((f) => {
     if (f.status === 'empty') { f.water = clamp(f.water - evap, 0, 5); return; }
     if (f.status === 'mature') {
       f.water = clamp(f.water - evap, 0, 5);
@@ -199,7 +202,8 @@ export function doGrowthPhase(G) {
     }
     f.growth += mod;
     if (f.growth >= f.requiredGrowth) { f.status = 'mature'; f.overripe = 0; addLog(G, `${p.name}の${f.variety}が成熟！（${QUALITY_LABEL[f.quality]}）`); }
-  }));
+    });
+  });
   G.cloudyThisRound = false;
 }
 

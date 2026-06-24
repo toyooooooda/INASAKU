@@ -170,8 +170,8 @@ export const HojoSuiden = {
       const f = p.fields.find((x) => x.id === fieldId);
       if (!f) return INVALID_MOVE;
       const src = consumeWaterSource(G, p);
-      const clanW = (G.advanced && p.clan === 'water') ? 1 : 0; // 水利の一族
-      const gain = (src !== 'empty' ? 2 : 1) + clanW;
+      const isWaterClan = G.advanced && p.clan === 'water'; // 水利の一族：枯渇でも+2（弱体化なし）
+      const gain = (src !== 'empty' || isWaterClan) ? 2 : 1;
       f.water = clamp(f.water + gain, 0, 5);
       p.workersUsed += 1;
       const note = src === 'pool' ? '' : src === 'tank' ? '（水桶）' : '（プール不足・+1）';

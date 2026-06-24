@@ -59,7 +59,7 @@ export const VARIETIES = {
 // 家系（非対称スタート能力）。上級ルール時、席順に配られる。
 export const CLANS = [
   { id: 'pioneer',  name: '開墾の民',   desc: '開墾ゲージ +1（毎回）' },
-  { id: 'water',    name: '水利の一族', desc: '「水を引く」が +1 多い' },
+  { id: 'water',    name: '水利の一族', desc: '田の蒸発-1（水持ち良）／水引きは枯渇でも+2' },
   { id: 'merchant', name: '商いの家',   desc: '道具・牛・倉が -2俵' },
   { id: 'noble',    name: '名門',       desc: '初期評判 +2／昇進コスト -1' },
 ];
