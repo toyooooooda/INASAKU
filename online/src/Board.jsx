@@ -73,7 +73,7 @@ function FieldCard({ f, idx, onClick, name }) {
       {!isEmpty && (
         <div className="field-variety">
           <span style={{ fontWeight: 'bold' }}>{f.variety}</span>
-          <span className="field-quality" style={{ color: QUALITY_COLOR[f.quality] }}
+          <span className={`field-quality fq${f.quality}`}
             title={`品質（勝利点）：並1点・上質2点・特上3点\n品質肥料（働き手1・堆肥or俵1）で+1できる`}>
             {QUALITY_LABEL[f.quality]}
           </span>
@@ -92,7 +92,7 @@ function FieldCard({ f, idx, onClick, name }) {
       )}
 
       <div className="field-water-row" title="水位（0〜5）&#10;0=干ばつ・1=低水位：成長なし&#10;2〜3=最適：成長+1&#10;4=病害・5=洪水（作物消滅）&#10;毎ラウンド-1蒸発。「水を引く」で+2">
-        <span className="field-water-num">💧{f.water}</span>
+        <span className="field-water-num" style={{ color: WATER_COLOR[f.water] }}>💧{f.water}</span>
         <WaterBar level={f.water} />
       </div>
     </div>

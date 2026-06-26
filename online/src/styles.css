@@ -75,32 +75,36 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 
 /* 田んぼカード */
 .field-section-label { font-size: 11px; color: #999; margin: 6px 0 3px; }
-.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 5px; margin-bottom: 6px; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 6px; margin-bottom: 6px; }
 .field-card {
-  border: 1px solid #ddd; border-radius: 7px; padding: 6px 7px;
-  font-size: 11px; background: #fafafa;
+  border: 1px solid #e2ddd0; border-radius: 9px; padding: 7px 8px;
+  font-size: 11px; background: #f7f4ec; display: flex; flex-direction: column; gap: 4px;
 }
-.field-card--planted { background: #f0f8f0; border-color: #9ecb9e; }
-.field-card--mature  { background: #fff8e8; border-color: #d9a441; }
-.field-card.overripe { border-color: #e74c3c; background: #fff5f5; }
-.field-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.field-card-num { font-weight: bold; color: #555; }
-.field-badge { border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: bold; }
-.badge--empty   { background: #eee; color: #888; }
-.badge--planted { background: #c8e6c8; color: #2e7d32; }
-.badge--mature  { background: #ffe0a0; color: #8a5000; }
-.field-variety { display: flex; gap: 4px; align-items: center; margin-bottom: 3px; }
-.field-quality { font-size: 10px; font-weight: bold; }
-.field-fert-icons { font-size: 10px; }
-.field-growth { margin-bottom: 3px; }
-.field-growth-text { font-size: 10px; color: #555; display: block; margin-bottom: 2px; }
+.field-card--planted { background: #eef7e7; border-color: #c0dd97; }
+.field-card--mature  { background: #fdf2da; border-color: #ecc46f; }
+.field-card.overripe { border-color: #e08a6a; background: #fdeee7; }
+.field-card-header { display: flex; justify-content: space-between; align-items: center; }
+.field-card-num { font-weight: bold; color: #5a3a00; font-size: 12px; }
+.field-badge { border-radius: 999px; padding: 1px 8px; font-size: 10px; font-weight: bold; }
+.badge--empty   { background: #ece8df; color: #8a8576; }
+.badge--planted { background: #d6ecc4; color: #3b6d11; }
+.badge--mature  { background: #fbe0a6; color: #854f0b; }
+.field-variety { display: flex; gap: 4px; align-items: center; }
+.field-variety > span:first-child { font-weight: bold; color: #5a3a00; }
+.field-quality { font-size: 10px; font-weight: bold; border-radius: 4px; padding: 0 5px; }
+.field-quality.fq1 { background: #f1efe8; color: #5f5e5a; }
+.field-quality.fq2 { background: #e6f1fb; color: #185fa5; }
+.field-quality.fq3 { background: #faeeda; color: #854f0b; }
+.field-fert-icons { font-size: 10px; margin-left: auto; }
+.field-growth { display: flex; flex-direction: column; gap: 2px; }
+.field-growth-text { font-size: 10px; color: #555; }
 .growth-bar-wrap { display: flex; gap: 2px; }
-.growth-pip { width: 10px; height: 6px; border-radius: 2px; }
-.field-water-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
-.field-water-num { font-size: 10px; color: #555; min-width: 18px; }
+.growth-pip { flex: 1; height: 5px; border-radius: 2px; }
+.field-water-row { display: flex; align-items: center; gap: 5px; }
+.field-water-num { font-size: 12px; font-weight: bold; min-width: 26px; }
 .water-bar-wrap { display: flex; gap: 2px; align-items: center; }
-.water-pip { width: 7px; height: 7px; border-radius: 50%; }
-.water-label { font-size: 9px; margin-left: 3px; font-weight: bold; }
+.water-pip { width: 6px; height: 6px; border-radius: 50%; }
+.water-label { font-size: 9px; margin-left: 2px; font-weight: bold; }
 
 .control { background: #f3fbf3; border: 1px solid #cfe6cf; border-radius: 8px; padding: 10px; margin: 8px 0; min-height: 60px; }
 .act p { margin: 4px 0; font-size: 13px; }
