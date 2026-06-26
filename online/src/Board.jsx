@@ -424,52 +424,52 @@ function ActionPanel({ G, me, moves, playerID, ctx, sel, setSel }) {
     <div className="act">
       <p>働き手 残り {remaining}/{me.workers}</p>
       <div className="menu">
-        <MenuBtn icon="🌱" label="植え付け" sub={!canPlant ? '春夏' : ''}
+        <MenuBtn icon={<i className="ti ti-seeding" />} label="植え付け" sub={!canPlant ? '春夏' : ''}
           tip={'働き手1・春夏限定\n空き田に品種を選んで植える\n苗を使う→成長+1かつ植付コスト-1\n耕済みなら品質+1でスタート\n品種コスト：野良稲0・早稲1・中稲2・晩稲2俵'}
           disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })} />
-        <MenuBtn icon="💧" label="水を引く"
+        <MenuBtn icon={<i className="ti ti-droplet" />} label="水を引く"
           tip={'働き手1・コストなし・通年\n対象の田の水位+2\n最適水位は2〜3。5で洪水（作物消滅）'}
           disabled={remaining < 1} onClick={() => setSel({ kind: 'irrigate' })} />
         {me.tools.canal && (
-          <MenuBtn icon="🌊" label="水路"
+          <MenuBtn icon={<i className="ti ti-ripple" />} label="水路"
             tip={'働き手1・水路が必要\n2か所の田に同時に水位+2できる'}
             disabled={remaining < 1 || me.fields.filter((f) => f.water < 5).length < 2} onClick={() => setSel({ kind: 'canal1' })} />
         )}
-        <MenuBtn icon="✨" label="品質肥料"
+        <MenuBtn icon={<i className="ti ti-sparkles" />} label="品質肥料"
           tip={'働き手1・堆肥1 or 俵1\n育成中の田の品質+1（品質上限まで）\n上質→特上にするには品質上限の高い品種が必要'}
           disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertQ' })} />
-        <MenuBtn icon="🌿" label="成長肥料"
+        <MenuBtn icon={<i className="ti ti-plant" />} label="成長肥料"
           tip={'働き手1・堆肥1 or 俵1\n育成中の田の成長+1（各田1回まで）\n収穫まであと少しというときに便利'}
           disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })} />
         {G.mode === 'territory' ? (
-          <MenuBtn icon="🚩" label="開拓"
+          <MenuBtn icon={<i className="ti ti-flag" />} label="開拓"
             tip={'働き手1・コストなし・通年\n自分の領地に隣接する原野を開拓\nゲージ式：先に3にした人がマスを獲得（競争）\n道具/牛/開墾の民で加速。中央は肥沃地\n盤面のマスを直接クリックでもOK'}
             disabled={remaining < 1} onClick={() => setSel({ kind: 'claim' })} />
         ) : (
-          <MenuBtn icon="⛏️" label="開墾"
+          <MenuBtn icon={<i className="ti ti-pick" />} label="開墾"
             tip={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}
             disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })} />
         )}
-        <MenuBtn icon="🌾" label="収穫"
+        <MenuBtn icon={<i className="ti ti-plant-2" />} label="収穫"
           tip={'働き手1〜2・通年\n成熟した田から俵を得る\n働き手1=通常量、2=豊作量\n道具があれば+1俵。過熟すると品質が落ちる'}
           disabled={remaining < 1 || matures.length === 0} onClick={() => setSel({ kind: 'harvest' })} />
-        <MenuBtn icon="🎁" label="献上"
+        <MenuBtn icon={<i className="ti ti-gift" />} label="献上"
           tip={'働き手2・年1回\n上質or特上の俵を1俵納める\n→ 評判+2\n評判を一気に稼ぐ重要な手段'}
           disabled={remaining < 2 || me.donatedThisYear} onClick={() => setSel({ kind: 'donate' })} />
-        <MenuBtn icon="🛒" label="購入"
+        <MenuBtn icon={<i className="ti ti-shopping-cart" />} label="購入"
           tip={'働き手不要・通年\n道具/牛/倉を購入する\n俵払い or 評判払いを選べる（評判払いが割安）\n道具8俵/評判4・牛16俵/評判6・倉6俵/評判3'}
           onClick={() => setSel({ kind: 'buy' })} />
-        <MenuBtn icon="💪" label="出稼ぎ" sub={!aw ? '秋冬' : ''}
+        <MenuBtn icon={<i className="ti ti-briefcase" />} label="出稼ぎ" sub={!aw ? '秋冬' : ''}
           tip={'働き手2・秋冬限定\n並俵を2俵獲得する\n農閑期の収入源。手が詰まったときの詰み回避に'}
           disabled={!aw || remaining < 2} onClick={() => run(() => moves.migrantWork())} />
-        <MenuBtn icon="🚜" label="土づくり" sub={!aw ? '秋冬' : ''}
+        <MenuBtn icon={<i className="ti ti-tractor" />} label="土づくり" sub={!aw ? '秋冬' : ''}
           tip={'働き手1・秋冬限定\n空き田を耕す（耕済みマークが付く）\nその田に次に植える作物が品質+1でスタート\n（1回分・植えたら効果は消える）'}
           disabled={!aw || remaining < 1 || empties.filter((f) => !f.tilled).length === 0} onClick={() => setSel({ kind: 'till' })} />
-        <MenuBtn icon="📋" label="カード" sub={!aw ? '秋冬' : '人2'}
+        <MenuBtn icon={<i className="ti ti-cards" />} label="カード" sub={!aw ? '秋冬' : '人2'}
           tip={'働き手2・秋冬限定\n全員共通の山札からカードを1枚引いて手札に加える\n大部分は 成長肥料/品質肥料/苗\n他に 豊作/慈雨/藁仕事/水枯れ/大洪水/大干ばつ\n手札の使用は無料（コストは引く時のみ）'}
           disabled={!aw || remaining < 2 || (G.cardDeck != null && G.cardDeck.length === 0 && G.cardDiscard != null && G.cardDiscard.length === 0)} onClick={() => run(() => moves.drawCard())} />
         <hr style={{ gridColumn: '1/-1', margin: '2px 0', borderColor: '#e8c8a0' }} />
-        <MenuBtn icon="💧" label="水の横取り" sub={G.seasonIdx !== 1 ? '夏' : '評判-1'} accent
+        <MenuBtn icon={<i className="ti ti-arrows-exchange" />} label="水の横取り" sub={G.seasonIdx !== 1 ? '夏' : '評判-1'} accent
           tip={'働き手1・夏限定・評判-1\n相手の田の水位-2、自分の田の水位+2\n交渉・妨害の手段（評判が必要）'}
           disabled={G.seasonIdx !== 1 || remaining < 1 || me.reputation < 1 || opponents.every((op) => op.fields.every((f) => f.water <= 0))}
           onClick={() => setSel({ kind: 'waterTheft1' })} />
