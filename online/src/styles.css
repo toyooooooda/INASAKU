@@ -25,8 +25,18 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .tt-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
 .tt-grid { display: grid; gap: 3px; max-width: 380px; }
 .tt-tile { aspect-ratio: 1; border-radius: 5px; padding: 2px; font-size: 9px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-.tt-tile.tt-click { cursor: pointer; box-shadow: 0 0 0 2px #4a8a4a inset; }
-.tt-tile.tt-click:hover { filter: brightness(1.08); }
+.tt-tile.tt-tappable { cursor: pointer; }
+.tt-tile.tt-click { box-shadow: 0 0 0 2px #4a8a4a inset; }
+.tt-tile.tt-tappable:hover { filter: brightness(1.08); }
+
+/* 田/マスの詳細モーダル */
+.detail-modal { background: #fffdf0; border-radius: 14px; padding: 16px 18px; max-width: 320px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.35); }
+.detail-title { font-weight: bold; color: #5a3a00; margin-bottom: 8px; font-size: 14px; }
+.detail-wild { font-size: 12px; color: #a8884a; margin: 8px 0; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.detail-actions button { font-size: 13px; padding: 6px 10px; }
+.field-card--click { cursor: pointer; }
+.field-card--click:hover { filter: brightness(0.97); box-shadow: 0 0 0 2px #d9a441 inset; }
 .tt-coord { font-size: 8px; color: rgba(0,0,0,0.5); line-height: 1; }
 .tt-field { display: flex; flex-wrap: wrap; gap: 1px; align-items: center; font-weight: bold; }
 .tt-var { font-size: 11px; }

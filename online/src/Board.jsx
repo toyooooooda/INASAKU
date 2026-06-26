@@ -46,14 +46,15 @@ function GrowthBar({ growth, required }) {
   );
 }
 
-function FieldCard({ f, idx }) {
+function FieldCard({ f, idx, onClick, name }) {
   const isEmpty = f.status === 'empty';
   const isMature = f.status === 'mature';
   const isPlanted = f.status === 'planted';
   return (
-    <div className={`field-card field-card--${f.status}${f.overripe > 0 ? ' overripe' : ''}`}>
+    <div className={`field-card field-card--${f.status}${f.overripe > 0 ? ' overripe' : ''}${onClick ? ' field-card--click' : ''}`}
+      onClick={onClick} title={onClick ? 'クリックで操作' : undefined}>
       <div className="field-card-header">
-        <span className="field-card-num">田{idx + 1}</span>
+        <span className="field-card-num">{name ?? `田${idx + 1}`}</span>
         {isEmpty && <span className="field-badge badge--empty" title={f.tilled ? '耕済み：次に植える作物が品質+1でスタート' : '空き田：植え付けか土づくりが可能'}>{f.tilled ? '🚜耕済' : '空き'}</span>}
         {isPlanted && <span className="field-badge badge--planted" title="育成中：成長が必要ラウンド数に達すると収穫可になる">育成中</span>}
         {isMature && <span className="field-badge badge--mature" title={f.overripe > 0 ? `過熟：放置${f.overripe}Rで品質-1（並まで）。早めに収穫を` : '収穫可：働き手1=通常量・2=豊作量'}>{f.overripe > 0 ? '⚠過熟' : '収穫可'}</span>}
@@ -88,7 +89,7 @@ function FieldCard({ f, idx }) {
   );
 }
 
-function PlayerPanel({ p, isCurrent, isMe, territory }) {
+function PlayerPanel({ p, isCurrent, isMe, territory, onFieldClick }) {
   return (
     <div className={`panel ${isCurrent ? 'current' : ''} ${isMe ? 'me' : ''}`}>
       <div className="phead">
@@ -114,7 +115,8 @@ function PlayerPanel({ p, isCurrent, isMe, territory }) {
         <>
           <div className="field-section-label">田（{p.fields.length}/{p.landLimit}）</div>
           <div className="field-grid">
-            {p.fields.map((f, i) => <FieldCard key={f.id} f={f} idx={i} />)}
+            {p.fields.map((f, i) => <FieldCard key={f.id} f={f} idx={i}
+              onClick={isMe && onFieldClick ? () => onFieldClick(f.id) : undefined} />)}
           </div>
         </>
       )}
@@ -697,13 +699,12 @@ function TerritoryTile({ tile, players, meIdx, action, onClick }) {
   const bg = owned ? PLAYER_COLORS[tile.owner % PLAYER_COLORS.length] : '#efe9da';
   const mine = tile.owner === meIdx;
   const gauges = Object.entries(tile.gauge || {}).filter(([, v]) => v > 0);
-  const clickable = !!action;
-  const titleMap = { plant: 'クリックで植え付け', harvest: 'クリックで収穫', claim: 'クリックで開拓' };
+  const titleMap = { plant: 'クリックで詳細・植え付け', harvest: 'クリックで詳細・収穫', claim: 'クリックで詳細・開拓' };
   return (
-    <div className={`tt-tile${clickable ? ' tt-click' : ''}`}
+    <div className={`tt-tile tt-tappable${action ? ' tt-click' : ''}`}
       style={{ background: bg, outline: mine ? '2px solid #333' : 'none' }}
-      title={clickable ? titleMap[action] : (owned ? `${players[tile.owner]?.name}の田` : '原野')}
-      onClick={clickable ? onClick : undefined}>
+      title={action ? titleMap[action] : (owned ? `${players[tile.owner]?.name}の田（クリックで詳細）` : '原野（クリックで詳細）')}
+      onClick={onClick}>
       <div className="tt-coord">{tile.fertile ? '★' : ''}{tile.row + 1},{tile.col + 1}</div>
       {owned && f ? (
         <div className="tt-field">
@@ -760,8 +761,70 @@ function TerritoryMap({ G, playerID, me, myTurn, onTile }) {
         {tiles.map((t) => {
           const action = actionFor(t);
           return <TerritoryTile key={t.id} tile={t} players={G.players} meIdx={meIdx}
-            action={action} onClick={() => onTile(t, action)} />;
+            action={action} onClick={() => onTile(t)} />;
         })}
+      </div>
+    </div>
+  );
+}
+
+// ---- 田/マスの詳細＋操作（通常・領地 共通）----
+function FieldDetail({ G, detail, me, myTurn, moves, setSel, setDetail }) {
+  const meIdx = me ? Number(me.id) : -1;
+  let field = null, tile = null, label = '', ownerIdx = null, fertile = false;
+  if (detail.tileId != null && G.map) {
+    tile = G.map.tiles.find((t) => t.id === detail.tileId);
+    if (!tile) return null;
+    field = tile.field; ownerIdx = tile.owner; fertile = tile.fertile;
+    label = `マス (${tile.row + 1},${tile.col + 1})`;
+  } else if (detail.fieldId != null && me) {
+    field = me.fields.find((f) => f.id === detail.fieldId);
+    if (!field) return null;
+    ownerIdx = meIdx; fertile = field.fertile;
+    label = `田${me.fields.indexOf(field) + 1}`;
+  } else return null;
+
+  const isMine = ownerIdx === meIdx;
+  const remaining = me ? me.workers - me.workersUsed : 0;
+  const canAct = isMine && myTurn && G.stage === 'action' && remaining >= 1;
+  const fertOK = me && (riceTotal(me) >= 1 || me.compost > 0);
+  const close = () => setDetail(null);
+  const act = (fn) => { fn(); close(); };
+
+  const buttons = [];
+  if (field) {
+    const def = VARIETIES[field.variety];
+    if (field.status === 'empty') {
+      if (canAct && G.seasonIdx <= 1) buttons.push(<button key="p" onClick={() => { setSel({ kind: 'plant', fieldId: field.id }); close(); }}>🌱 植える</button>);
+      if (canAct && G.seasonIdx >= 2 && !field.tilled) buttons.push(<button key="t" onClick={() => act(() => moves.tillSoil(field.id))}>🚜 土づくり</button>);
+    } else if (field.status === 'planted') {
+      if (canAct && field.water < 5) buttons.push(<button key="i" onClick={() => act(() => moves.irrigate(field.id))}>💧 水を引く</button>);
+      if (canAct && !field.fertilized && field.quality < (def?.maxQuality ?? 3) && fertOK) buttons.push(<button key="fq" onClick={() => act(() => moves.fertilizeQuality(field.id))}>✨ 品質肥料</button>);
+      if (canAct && !field.growthFertilized && field.growth < field.requiredGrowth && fertOK) buttons.push(<button key="fg" onClick={() => act(() => moves.fertilizeGrowth(field.id))}>🌿 成長肥料</button>);
+    } else if (field.status === 'mature') {
+      if (canAct) buttons.push(<button key="h" onClick={() => { setSel({ kind: 'harvestW', fieldId: field.id }); close(); }}>🌾 収穫</button>);
+    }
+  } else if (tile && tile.owner === null) {
+    const adj = G.map.tiles.some((t) => t.owner === meIdx && Math.abs(t.row - tile.row) + Math.abs(t.col - tile.col) === 1);
+    if (myTurn && G.stage === 'action' && remaining >= 1 && adj) buttons.push(<button key="c" onClick={() => act(() => moves.claimTile(tile.id))}>🚩 開拓</button>);
+  }
+
+  return (
+    <div className="weather-overlay" onClick={close}>
+      <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="detail-title">
+          {fertile ? '★肥沃地 ' : ''}{label}
+          {ownerIdx != null && ownerIdx >= 0 ? `（${G.players[ownerIdx]?.name}）` : '（原野）'}
+        </div>
+        {field ? <FieldCard f={field} idx={0} name={label} /> : (
+          <div className="detail-wild">原野（未開拓）
+            {Object.entries(tile.gauge || {}).filter(([, v]) => v > 0).map(([k, v]) => ` P${Number(k) + 1}:${v}/3`).join('') || ' ─'}
+          </div>
+        )}
+        <div className="detail-actions">
+          {buttons.length ? buttons : <span style={{ fontSize: 11, color: '#999' }}>{isMine ? '今できる操作はありません' : '閲覧のみ'}</span>}
+        </div>
+        <button className="back" onClick={close}>閉じる</button>
       </div>
     </div>
   );
@@ -773,15 +836,12 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
 
   // 行動の選択状態（ActionPanel と 盤面クリックで共有）
   const [sel, setSel] = useState(null);
+  const [detail, setDetail] = useState(null); // 田/マスの詳細パネル
   useEffect(() => { if (!myTurn) setSel(null); }, [myTurn]);
 
-  // 盤面のマスをクリック → アクションに応じて開始
-  const onTile = (tile, action) => {
-    if (!action || !me) return;
-    if (action === 'plant') setSel({ kind: 'plant', fieldId: tile.field.id });
-    else if (action === 'harvest') setSel({ kind: 'harvestW', fieldId: tile.field.id });
-    else if (action === 'claim') moves.claimTile(tile.id);
-  };
+  // マス/田をクリック → 詳細パネル（状態確認＋操作）
+  const onTile = (tile) => setDetail({ tileId: tile.id });
+  const onFieldClick = (fieldId) => setDetail({ fieldId });
 
   // 名前を自分の最初の手番に自動同期（matchData優先→URL params）
   const urlName = new URLSearchParams(window.location.search).get('name');
@@ -822,6 +882,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
   return (
     <div className="wrap">
       {showWeather && <WeatherOverlay G={G} onClose={() => setShowWeather(false)} />}
+      {detail && <FieldDetail G={G} detail={detail} me={me} myTurn={myTurn} moves={moves} setSel={setSel} setDetail={setDetail} />}
       <header>
         <b>{G.year}年目/{G.totalYears}年 {SEASONS[G.seasonIdx]} R{G.roundInSeason + 1}</b>
         {G.year === G.totalYears && G.seasonIdx <= 1 && (
@@ -845,7 +906,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
 
       <div className="players">
         {G.players.map((p, i) => (
-          <PlayerPanel key={p.id} p={p} isCurrent={Number(ctx.currentPlayer) === i} isMe={Number(playerID) === i} territory={G.mode === 'territory'} />
+          <PlayerPanel key={p.id} p={p} isCurrent={Number(ctx.currentPlayer) === i} isMe={Number(playerID) === i} territory={G.mode === 'territory'} onFieldClick={onFieldClick} />
         ))}
       </div>
 
