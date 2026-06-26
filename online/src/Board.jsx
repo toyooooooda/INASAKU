@@ -423,24 +423,13 @@ function ActionPanel({ G, me, moves, playerID, ctx, sel, setSel }) {
   return (
     <div className="act">
       <p>働き手 残り {remaining}/{me.workers}</p>
+      <p className="menu-hint">🌱 植え付け・💧水・✨肥料・🌾収穫・🚜土づくりは <b>田んぼをタップ</b>して操作します</p>
       <div className="menu">
-        <MenuBtn icon={<i className="ti ti-seeding" />} label="植え付け" sub={!canPlant ? '春夏' : ''}
-          tip={'働き手1・春夏限定\n空き田に品種を選んで植える\n苗を使う→成長+1かつ植付コスト-1\n耕済みなら品質+1でスタート\n品種コスト：野良稲0・早稲1・中稲2・晩稲2俵'}
-          disabled={!canPlant || empties.length === 0 || remaining < 1} onClick={() => setSel({ kind: 'plant' })} />
-        <MenuBtn icon={<i className="ti ti-droplet" />} label="水を引く"
-          tip={'働き手1・コストなし・通年\n対象の田の水位+2\n最適水位は2〜3。5で洪水（作物消滅）'}
-          disabled={remaining < 1} onClick={() => setSel({ kind: 'irrigate' })} />
         {me.tools.canal && (
           <MenuBtn icon={<i className="ti ti-ripple" />} label="水路"
             tip={'働き手1・水路が必要\n2か所の田に同時に水位+2できる'}
             disabled={remaining < 1 || me.fields.filter((f) => f.water < 5).length < 2} onClick={() => setSel({ kind: 'canal1' })} />
         )}
-        <MenuBtn icon={<i className="ti ti-sparkles" />} label="品質肥料"
-          tip={'働き手1・堆肥1 or 俵1\n育成中の田の品質+1（品質上限まで）\n上質→特上にするには品質上限の高い品種が必要'}
-          disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertQ' })} />
-        <MenuBtn icon={<i className="ti ti-plant" />} label="成長肥料"
-          tip={'働き手1・堆肥1 or 俵1\n育成中の田の成長+1（各田1回まで）\n収穫まであと少しというときに便利'}
-          disabled={remaining < 1 || !fertOK || planted.length === 0} onClick={() => setSel({ kind: 'fertG' })} />
         {G.mode === 'territory' ? (
           <MenuBtn icon={<i className="ti ti-flag" />} label="開拓"
             tip={'働き手1・コストなし・通年\n自分の領地に隣接する原野を開拓\nゲージ式：先に3にした人がマスを獲得（競争）\n道具/牛/開墾の民で加速。中央は肥沃地\n盤面のマスを直接クリックでもOK'}
@@ -450,9 +439,6 @@ function ActionPanel({ G, me, moves, playerID, ctx, sel, setSel }) {
             tip={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}
             disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })} />
         )}
-        <MenuBtn icon={<i className="ti ti-plant-2" />} label="収穫"
-          tip={'働き手1〜2・通年\n成熟した田から俵を得る\n働き手1=通常量、2=豊作量\n道具があれば+1俵。過熟すると品質が落ちる'}
-          disabled={remaining < 1 || matures.length === 0} onClick={() => setSel({ kind: 'harvest' })} />
         <MenuBtn icon={<i className="ti ti-gift" />} label="献上"
           tip={'働き手2・年1回\n上質or特上の俵を1俵納める\n→ 評判+2\n評判を一気に稼ぐ重要な手段'}
           disabled={remaining < 2 || me.donatedThisYear} onClick={() => setSel({ kind: 'donate' })} />
@@ -827,11 +813,12 @@ function FieldDetail({ G, detail, me, myTurn, moves, setSel, setDetail }) {
   const buttons = [];
   if (field) {
     const def = VARIETIES[field.variety];
+    // 水を引く（空き田・育成中どちらでもOK）
+    if (canAct && field.water < 5) buttons.push(<button key="i" onClick={() => act(() => moves.irrigate(field.id))}>💧 水を引く</button>);
     if (field.status === 'empty') {
       if (canAct && G.seasonIdx <= 1) buttons.push(<button key="p" onClick={() => { setSel({ kind: 'plant', fieldId: field.id }); close(); }}>🌱 植える</button>);
       if (canAct && G.seasonIdx >= 2 && !field.tilled) buttons.push(<button key="t" onClick={() => act(() => moves.tillSoil(field.id))}>🚜 土づくり</button>);
     } else if (field.status === 'planted') {
-      if (canAct && field.water < 5) buttons.push(<button key="i" onClick={() => act(() => moves.irrigate(field.id))}>💧 水を引く</button>);
       if (canAct && !field.fertilized && field.quality < (def?.maxQuality ?? 3) && fertOK) buttons.push(<button key="fq" onClick={() => act(() => moves.fertilizeQuality(field.id))}>✨ 品質肥料</button>);
       if (canAct && !field.growthFertilized && field.growth < field.requiredGrowth && fertOK) buttons.push(<button key="fg" onClick={() => act(() => moves.fertilizeGrowth(field.id))}>🌿 成長肥料</button>);
     } else if (field.status === 'mature') {
