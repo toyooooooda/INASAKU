@@ -25,8 +25,8 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .tt-legend { font-size: 11px; color: #555; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tt-legend-item { display: inline-flex; align-items: center; gap: 3px; }
 .tt-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
-.tt-grid { display: grid; gap: 3px; max-width: 380px; }
-.tt-tile { aspect-ratio: 1; border-radius: 5px; padding: 2px; font-size: 9px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.tt-grid { display: grid; gap: 4px; max-width: 460px; }
+.tt-tile { aspect-ratio: 1; border-radius: 7px; padding: 3px 4px; font-size: 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
 .tt-tile.tt-tappable { cursor: pointer; }
 .tt-tile.tt-click { box-shadow: 0 0 0 2px #4a8a4a inset; }
 .tt-tile.tt-tappable:hover { filter: brightness(1.08); }
@@ -39,12 +39,12 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .detail-actions button { font-size: 13px; padding: 6px 10px; }
 .field-card--click { cursor: pointer; }
 .field-card--click:hover { filter: brightness(0.97); box-shadow: 0 0 0 2px #d9a441 inset; }
-.tt-coord { font-size: 8px; color: rgba(0,0,0,0.5); line-height: 1; }
-.tt-field { display: flex; flex-wrap: wrap; gap: 1px; align-items: center; font-weight: bold; }
-.tt-var { font-size: 11px; }
-.tt-g { background: rgba(255,255,255,0.7); border-radius: 3px; padding: 0 2px; }
-.tt-m { background: #ffe0a0; border-radius: 3px; padding: 0 2px; }
-.tt-w { font-size: 8px; }
+.tt-coord { font-size: 9px; color: rgba(0,0,0,0.5); line-height: 1; }
+.tt-field { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; font-weight: bold; }
+.tt-var { font-size: 13px; }
+.tt-g { background: rgba(255,255,255,0.75); border-radius: 3px; padding: 0 3px; font-size: 10px; }
+.tt-m { background: #ffe0a0; border-radius: 3px; padding: 0 3px; }
+.tt-w { font-size: 10px; font-weight: bold; }
 .tt-empty { color: rgba(0,0,0,0.45); }
 .tt-gauge { display: flex; flex-direction: column; font-size: 8px; font-weight: bold; }
 .tt-wild { color: #a89878; }
@@ -108,7 +108,13 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 
 .control { background: #f3fbf3; border: 1px solid #cfe6cf; border-radius: 8px; padding: 10px; margin: 8px 0; min-height: 60px; }
 .act p { margin: 4px 0; font-size: 13px; }
-.menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 6px; }
+.menu-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px; width: 100%; min-height: 56px; border-radius: 9px; }
+.mb-ico { font-size: 20px; line-height: 1; }
+.mb-lb { font-size: 12px; line-height: 1.2; text-align: center; }
+.mb-lb small { display: block; font-size: 9px; color: #aa9; font-weight: normal; }
+.menu-btn--accent { background: #e8f4fb; border-color: #90cce8; }
+.menu-btn--accent:hover:not(:disabled) { background: #d6ecfa; }
 button { cursor: pointer; border: 1px solid #bbb; background: #fff; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
 button:hover:not(:disabled) { background: #f0f0f0; }
 button:disabled { opacity: 0.4; cursor: default; }
