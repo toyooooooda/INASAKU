@@ -3,6 +3,16 @@ import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND
 
 const CLAN_BY_ID = Object.fromEntries(CLANS.map((c) => [c.id, c]));
 
+// 手札カードのアイコンとカテゴリ（色分け）
+const CARD_ICON = {
+  growth_fert: '🌿', quality_fert: '✨', seedling_card: '🌱', growth_all: '🌾',
+  water_all: '💧', strawwork: '🪢', water_drought: '⚡', flood_all: '🌊', drought_all: '☀️',
+};
+const CARD_CAT = {
+  growth_fert: 'fert', quality_fert: 'qual', seedling_card: 'seed', growth_all: 'seed', strawwork: 'rep',
+  water_all: 'event', water_drought: 'event', flood_all: 'event', drought_all: 'event',
+};
+
 // ---- ツールチップ ----
 function Tip({ text, children }) {
   return (
@@ -102,12 +112,23 @@ function PlayerPanel({ p, isCurrent, isMe, territory, onFieldClick }) {
         </span>
       </div>
       <div className="stats">
-        <span title="俵の総数（通貨兼勝利点）&#10;並1点・上質2点・特上3点で最終計算">俵{riceTotal(p)}（{ricePts(p)}pt）</span>
-        <span title="第二の通貨&#10;増：上質/特上収穫+1・献上+2・藁仕事+1&#10;減：並を1回に4俵以上出荷-1・維持費未払いで離脱-1&#10;使途：道具/牛/倉の支払い・位階昇進・最終点">評判{p.reputation}</span>
-        <span title={`働き手（固定リソース）&#10;残り使用数/総数&#10;毎ターン配置して使い回す。ターン後に手元へ戻る&#10;増員：年度末のみ・1人4俵。維持費：1人1俵/年`}>働き手{p.workers - p.workersUsed}/{p.workers}</span>
+        <div className="stat-chip" title="俵の総数（通貨兼勝利点）&#10;並1点・上質2点・特上3点で最終計算">
+          <span className="stat-label">🌾 俵</span>
+          <span className="stat-val">{riceTotal(p)} <small>{ricePts(p)}pt</small></span>
+        </div>
+        <div className="stat-chip" title="第二の通貨&#10;増：上質/特上収穫+1・献上+2・藁仕事+1&#10;減：並を1回に4俵以上出荷-1・維持費未払いで離脱-1&#10;使途：道具/牛/倉の支払い・位階昇進・最終点">
+          <span className="stat-label">⭐ 評判</span>
+          <span className="stat-val">{p.reputation}</span>
+        </div>
+        <div className="stat-chip" title={`働き手（固定リソース）&#10;残り/総数。毎ターン配置して使い回す&#10;増員：年度末のみ・維持費1俵/人`}>
+          <span className="stat-label">👤 働き手</span>
+          <span className="stat-val">{p.workers - p.workersUsed}<small>/{p.workers}</small></span>
+        </div>
       </div>
-      <div className="rice" title="俵の等級内訳&#10;並1点 / 上質2点 / 特上3点（最終得点換算）">
-        並{p.rice[0].count} / 上質{p.rice[1].count} / 特上{p.rice[2].count}
+      <div className="rice-chips" title="俵の等級内訳（並1点 / 上質2点 / 特上3点）">
+        <span className="rice-chip rq1">並 {p.rice[0].count}</span>
+        <span className="rice-chip rq2">上質 {p.rice[1].count}</span>
+        <span className="rice-chip rq3">特上 {p.rice[2].count}</span>
       </div>
       {territory ? (
         <div className="field-section-label">田 {p.fields.length}マス（盤面参照）</div>
@@ -522,13 +543,16 @@ function HandPanel({ G, me, moves, myTurn }) {
             if (needsField) setPick({ cardId: card.id, handIdx });
             else moves.playCard(handIdx);
           };
+          const cat = CARD_CAT[card.id] || 'fert';
           return (
             <div key={g.id} className={`hand-card${isEvent ? ' hand-card--event' : ''}`}>
               <div className="hand-card-name">
-                {isEvent ? '⚡' : '🌿'} {card.name} <span className="hand-card-count">×{g.indices.length}</span>
+                <span className={`hand-card-ico cat-${cat}`}>{CARD_ICON[card.id] || '🌿'}</span>
+                {card.name}
+                <span className={`hand-card-count cat-${cat}`}>×{g.indices.length}</span>
               </div>
               <div className="hand-card-desc">{cardDef?.desc ?? card.desc}</div>
-              {isEvent && <div className="hand-card-warn">⚠ 全員に影響</div>}
+              {isEvent && <div className="hand-card-warn">⚠ 全員に影響（自分も）</div>}
               {canAct && (
                 <div className="hand-card-pay">
                   <button className="hand-card-use" disabled={noEffect}
@@ -892,7 +916,9 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         )}
         <span>{G.stage === 'yearEnd' ? '📜 年度末' : '🌿 行動'}</span>
         {G.cardDeck && <span title="全員共通の山札 残り枚数">🃏山札{G.cardDeck.length}</span>}
-        <span>手番：{G.players[Number(ctx.currentPlayer)]?.name}</span>
+        <span className={`turn-badge ${myTurn ? 'mine' : ''}`}>
+          {myTurn ? '▶ あなたの手番' : `手番：${G.players[Number(ctx.currentPlayer)]?.name}`}
+        </span>
       </header>
 
       {G.weather && G.stage === 'action' && (

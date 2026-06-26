@@ -16,6 +16,8 @@ body { margin: 0; font-family: system-ui, "Segoe UI", "Hiragino Sans", sans-seri
 .lobby-btn:disabled { opacity: 0.5; cursor: default; }
 
 header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+.turn-badge { margin-left: auto; font-size: 13px; background: rgba(255,255,255,0.18); border-radius: 999px; padding: 3px 12px; }
+.turn-badge.mine { background: #cde6c0; color: #2c5e1a; font-weight: bold; }
 .weather { background: #e6f0fa; border: 1px solid #b9d6f2; border-radius: 8px; padding: 6px 10px; margin: 8px 0; font-size: 13px; }
 
 /* 領地モードの盤面 */
@@ -53,8 +55,18 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .panel.me { background: #fffdf5; }
 .phead { display: flex; justify-content: space-between; margin-bottom: 4px; }
 .rank { color: #888; }
-.stats { display: flex; gap: 10px; font-weight: bold; }
-.rice { color: #666; margin: 2px 0; }
+/* メトリクスチップ（俵・評判・働き手） */
+.stats { display: flex; gap: 6px; margin: 6px 0; }
+.stat-chip { flex: 1; background: #f6f1e6; border-radius: 7px; padding: 5px 8px; display: flex; flex-direction: column; gap: 1px; }
+.stat-label { font-size: 10px; color: #998; }
+.stat-val { font-size: 16px; font-weight: bold; color: #5a3a00; line-height: 1.1; }
+.stat-val small { font-size: 10px; color: #b0a080; font-weight: normal; }
+/* 俵の品質内訳チップ */
+.rice-chips { display: flex; gap: 5px; margin: 0 0 6px; }
+.rice-chip { flex: 1; text-align: center; font-size: 11px; font-weight: bold; border-radius: 6px; padding: 3px 0; }
+.rice-chip.rq1 { background: #f1efe8; color: #5f5e5a; }
+.rice-chip.rq2 { background: #e6f1fb; color: #185fa5; }
+.rice-chip.rq3 { background: #faeeda; color: #854f0b; }
 .fields, .badges { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .chip { border: 1px solid #cdb; background: #f4f8ef; border-radius: 4px; padding: 0 4px; font-size: 11px; }
 .chip.mature { background: #fdebc8; border-color: #e6c074; }
@@ -152,29 +164,35 @@ button.done { margin-top: 10px; width: 100%; background: #4a8a4a; color: #fff; b
 /* 手札カード */
 .hand-section { margin: 10px 0 6px; border-top: 1px dashed #c8a860; padding-top: 8px; }
 .hand-title { margin: 0 0 6px; font-size: 12px; color: #7a5500; font-weight: bold; }
-.hand-cards { display: flex; flex-wrap: wrap; gap: 6px; }
+.hand-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .hand-card {
-  border: 2px solid #c8a860; border-radius: 8px; background: #fffbf0;
-  padding: 6px 8px; font-size: 11px; min-width: 100px; max-width: 140px;
-  display: flex; flex-direction: column; gap: 3px;
+  border: 1px solid #ddd; border-radius: 10px; background: #fff;
+  padding: 8px 10px; font-size: 11px;
+  display: flex; flex-direction: column; gap: 4px;
 }
-.hand-card-name { font-weight: bold; color: #5a3a00; }
-.hand-card-count { color: #8d6e3a; font-weight: bold; background: #f0e2c8; border-radius: 8px; padding: 0 6px; font-size: 11px; }
-.hand-card-desc { color: #666; font-size: 10px; }
+.hand-card-name { font-weight: bold; color: #5a3a00; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.hand-card-ico { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.hand-card-count { margin-left: auto; font-weight: bold; border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+/* カテゴリ色 */
+.cat-fert { background: #eeedfe; color: #3c3489; }
+.cat-qual { background: #e6f1fb; color: #185fa5; }
+.cat-seed { background: #eaf3de; color: #3b6d11; }
+.cat-rep  { background: #faeeda; color: #854f0b; }
+.cat-event { background: #faece7; color: #993c1d; }
+.hand-card-desc { color: #555; font-size: 11px; line-height: 1.5; }
 .hand-card-use {
-  margin-top: 4px; padding: 3px 8px; font-size: 11px;
-  background: #c8a860; color: #fff; border: none; border-radius: 4px;
-  cursor: pointer; font-weight: bold;
+  margin-top: auto; padding: 5px 8px; font-size: 12px;
+  background: #4a8a4a; color: #fff; border: none; border-radius: 6px;
+  cursor: pointer; font-weight: bold; width: 100%;
 }
-.hand-card-use:hover:not(:disabled) { background: #a07830; }
+.hand-card-use:hover:not(:disabled) { background: #3a6f3a; }
 .hand-card-use:disabled { opacity: 0.4; cursor: default; }
 .hand-card-warn { font-size: 10px; color: #b03000; font-weight: bold; }
 .hand-card-pay { display: flex; gap: 4px; margin-top: 4px; }
-.hand-card-pay .hand-card-use { flex: 1; margin-top: 0; padding: 3px 4px; }
-.hand-card--event { border-color: #d08060; background: #fff8f0; }
+.hand-card--event { border-color: #e0b3a0; background: #fff8f4; }
 .hand-card--event .hand-card-name { color: #8b3000; }
-.hand-card--event .hand-card-use { background: #d07040; }
-.hand-card--event .hand-card-use:hover:not(:disabled) { background: #a05020; }
+.hand-card--event .hand-card-use { background: #c0603a; }
+.hand-card--event .hand-card-use:hover:not(:disabled) { background: #9a4a28; }
 
 /* ツールチップ */
 .tip-wrap { position: relative; display: block; }
