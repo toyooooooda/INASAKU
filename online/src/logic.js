@@ -72,6 +72,8 @@ export function createPlayer(i, name) {
     hand: [],        // 手札カード
     clan: null,      // 家系（上級ルール）
     tributeCommit: 0, // 隠し献上の予約量（公開時に一斉精算）
+    project: { gauge: 0, score: 0, claimed: 0 }, // 大事業（多年プロジェクト）
+    builtThisTurn: false,                        // この手番に造営したか（1手番1回制限）
     waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,
@@ -363,15 +365,15 @@ export function computeScores(G) {
     const rice = ricePoints(p);
     return {
       id: p.id, name: p.name, ricePoints: rice, reputation: p.reputation,
-      titleBonus: repTitleBonus(p.reputation), rank: p.rank,
+      titleBonus: repTitleBonus(p.reputation), projectBonus: (p.project && p.project.score) || 0, rank: p.rank,
     };
   });
   // 案1：名声第一（最終評判が最多のプレイヤーに +5・同点は全員）
   const maxRep = Math.max(0, ...rows.map((r) => r.reputation));
   rows.forEach((r) => { r.fameBonus = (maxRep > 0 && r.reputation === maxRep) ? 5 : 0; });
-  // 米寿（俵＋評判＋称号＋名声の小計が88以上で+10）
+  // 米寿（俵＋評判＋称号＋名声＋大事業の小計が88以上で+10）
   rows.forEach((r) => {
-    const sub = r.ricePoints + r.reputation + r.titleBonus + r.fameBonus;
+    const sub = r.ricePoints + r.reputation + r.titleBonus + r.fameBonus + r.projectBonus;
     r.misuBonus = sub >= 88 ? 10 : 0;
     r.total = sub + r.misuBonus;
   });

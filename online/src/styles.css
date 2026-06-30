@@ -73,6 +73,12 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .chip.planted { background: #eaf6ea; }
 .tag { background: #eee; border-radius: 4px; padding: 0 4px; font-size: 11px; color: #777; }
 
+/* 大事業（多年プロジェクト）バー */
+.project-bar { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6a4a8a; background: #f1ecf8; border: 1px solid #d6c8ee; border-radius: 7px; padding: 4px 8px; margin: 4px 0; }
+.project-bar b { color: #4a2e7a; margin-left: auto; }
+.project-fill { flex: 1; height: 6px; background: #e0d4f2; border-radius: 3px; overflow: hidden; }
+.project-fill > span { display: block; height: 100%; background: #8a6ec0; border-radius: 3px; }
+
 /* 田んぼカード */
 .field-section-label { font-size: 11px; color: #999; margin: 6px 0 3px; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 6px; margin-bottom: 6px; }

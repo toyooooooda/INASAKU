@@ -2,7 +2,7 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS, makeTerritoryMap, territoryCorners } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS, makeTerritoryMap, territoryCorners, PROJECT_MAX, PROJECT_MILESTONES } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField, resetField,
@@ -116,6 +116,8 @@ export const HojoSuiden = {
       // 手番プレイヤーの働き手をリセット
       const p = G.players[idx];
       p.workersUsed = 0;
+      p.builtThisTurn = false; // 大事業の造営は1手番1回
+      if (!p.project) p.project = { gauge: 0, score: 0, claimed: 0 };
       // 春（R1）に大雪ペナルティを消費
       if (G.seasonIdx === 0 && G.roundInSeason === 0 && p.penaltyNextSpring > 0) {
         p.workersUsed = Math.min(p.workers, p.penaltyNextSpring);
@@ -246,6 +248,30 @@ export const HojoSuiden = {
         } else addLog(G, `${p.name}：開墾完了（上限のため待機）`);
       }
       addEvent(G, 'reclaim', playerID, { gauge: w.gauge });
+    },
+
+    // ---- 大事業の造営（通年・働き手1＋俵1・1手番1回）----
+    // 労働者を増やしても1手番1回しか進まない＝多くのラウンド（時間）を要する。
+    // 道中は米も評判も生まず、段階到達で逐次VP（後半ほど加速）。
+    buildProject: ({ G, playerID }) => {
+      const p = G.players[Number(playerID)];
+      if (G.stage !== 'action') return INVALID_MOVE;
+      if (!p.project) p.project = { gauge: 0, score: 0, claimed: 0 };
+      if (p.builtThisTurn) return INVALID_MOVE;                 // 1手番1回
+      if (p.project.gauge >= PROJECT_MAX) return INVALID_MOVE;  // 完成済み
+      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
+      if (totalRiceCount(p) < 1) return INVALID_MOVE;           // 材料 俵1
+      payRice(p, 1); p.workersUsed += 1; p.builtThisTurn = true;
+      p.project.gauge += 1;
+      addLog(G, `${p.name}：大事業を造営（${p.project.gauge}/${PROJECT_MAX}）`);
+      // 段階達成ボーナス（逐次）
+      while (p.project.claimed < PROJECT_MILESTONES.length
+        && p.project.gauge >= PROJECT_MILESTONES[p.project.claimed].gauge) {
+        const m = PROJECT_MILESTONES[p.project.claimed];
+        p.project.score += m.reward; p.project.claimed += 1;
+        addLog(G, `🏛️ ${p.name}：大事業 段階達成！ +${m.reward}点（事業 累計+${p.project.score}）`);
+      }
+      addEvent(G, 'build_project', playerID, { gauge: p.project.gauge, score: p.project.score });
     },
 
     // ---- 領地モードの開拓（ゲージ式競争・働き手1）----

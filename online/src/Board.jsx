@@ -142,6 +142,13 @@ function PlayerPanel({ p, isCurrent, isMe, territory, onFieldClick }) {
         <span className="rice-chip rq2">上質 {p.rice[1].count}</span>
         <span className="rice-chip rq3">特上 {p.rice[2].count}</span>
       </div>
+      {p.project && p.project.gauge > 0 && (
+        <div className="project-bar" title="大事業の造営ゲージ（1手番1回ずつ）&#10;段階到達でVP：3/6/9/12/15 → +5/+7/+10/+14/+18">
+          🏛️ 大事業 {p.project.gauge}/15
+          <span className="project-fill"><span style={{ width: `${(p.project.gauge / 15) * 100}%` }} /></span>
+          <b>+{p.project.score}点</b>
+        </div>
+      )}
       {territory ? (
         <div className="field-section-label">田 {p.fields.length}マス（盤面参照）</div>
       ) : (
@@ -439,6 +446,10 @@ function ActionPanel({ G, me, moves, playerID, ctx, sel, setSel }) {
             tip={'働き手1・通年\n荒れ地ゲージ+1（道具+1・牛+1で加速）\nゲージ3で田1枚完成。土地上限内なら即完成'}
             disabled={remaining < 1 || wilds.length === 0} onClick={() => setSel({ kind: 'reclaim' })} />
         )}
+        <MenuBtn icon={<i className="ti ti-building-monument" />} label="大事業" sub={`${me.project ? me.project.gauge : 0}/15`}
+          tip={'働き手1＋俵1・通年・1手番に1回だけ\n（労働者を増やしても加速できない＝多くのラウンド＝時間が必要）\n道中は米も評判も生まず、段階到達で大きなVP\n3/6/9/12/15で +5/+7/+10/+14/+18（累計54）\n田を広げず地道に仕込む別ルート'}
+          disabled={remaining < 1 || riceTotal(me) < 1 || me.builtThisTurn || (me.project && me.project.gauge >= 15)}
+          onClick={() => run(() => moves.buildProject())} />
         <MenuBtn icon={<i className="ti ti-gift" />} label="献上"
           tip={'働き手2・年1回\n上質or特上の俵を1俵納める\n→ 評判+2\n評判を一気に稼ぐ重要な手段'}
           disabled={remaining < 2 || me.donatedThisYear} onClick={() => setSel({ kind: 'donate' })} />
@@ -892,7 +903,7 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         <h1>🏆 ゲーム終了</h1>
         <ol>
           {scores.map((s) => (
-            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.titleBonus ? `＋称号${s.titleBonus}` : ''}{s.fameBonus ? `＋名声${s.fameBonus}` : ''}{s.misuBonus ? '＋米寿10' : ''}）</li>
+            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.titleBonus ? `＋称号${s.titleBonus}` : ''}{s.fameBonus ? `＋名声${s.fameBonus}` : ''}{s.projectBonus ? `＋大事業${s.projectBonus}` : ''}{s.misuBonus ? '＋米寿10' : ''}）</li>
           ))}
         </ol>
       </div>

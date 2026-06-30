@@ -10,6 +10,18 @@ export const RAT_OUTBREAK_CHANCE = 0.2;
 // ゲーム年数（最終年の秋冬はスキップして夏終了）
 export const GAME_YEARS = 5;
 
+// ===== 大事業（多年プロジェクト）=====
+// 造営は「1手番に1回だけ」＝労働者を増やしても加速できず、多くのラウンドを要する。
+// 道中は米も評判も生まず、段階到達で逐次VP（後半ほど加速）。
+export const PROJECT_MAX = 15;
+export const PROJECT_MILESTONES = [
+  { gauge: 3, reward: 5 },
+  { gauge: 6, reward: 7 },
+  { gauge: 9, reward: 10 },
+  { gauge: 12, reward: 14 },
+  { gauge: 15, reward: 18 },
+]; // 累計 5 / 12 / 22 / 36 / 54 点
+
 // ===== 領地モード（共有盤面） =====
 export const PLAYER_COLORS = ['#d98880', '#7fb3d5', '#82c995', '#e8c25a'];
 
