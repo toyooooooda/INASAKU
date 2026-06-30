@@ -250,18 +250,17 @@ export const HojoSuiden = {
       addEvent(G, 'reclaim', playerID, { gauge: w.gauge });
     },
 
-    // ---- 大事業の造営（通年・働き手1＋俵1・1手番1回）----
-    // 労働者を増やしても1手番1回しか進まない＝多くのラウンド（時間）を要する。
-    // 道中は米も評判も生まず、段階到達で逐次VP（後半ほど加速）。
+    // ---- 大事業の造営（通年・働き手2・俵不要・1手番1回）----
+    // 働き手2＝3人中2人を投じる重い選択（片手間では無理）。俵は使わないので
+    // 少ない田で食いつなぎ労働を事業に注ぐ専業ルートになる。1手番1回＝終盤の一括投入は不可。
     buildProject: ({ G, playerID }) => {
       const p = G.players[Number(playerID)];
       if (G.stage !== 'action') return INVALID_MOVE;
       if (!p.project) p.project = { gauge: 0, score: 0, claimed: 0 };
       if (p.builtThisTurn) return INVALID_MOVE;                 // 1手番1回
       if (p.project.gauge >= PROJECT_MAX) return INVALID_MOVE;  // 完成済み
-      if (p.workersUsed + 1 > p.workers) return INVALID_MOVE;
-      if (totalRiceCount(p) < 1) return INVALID_MOVE;           // 材料 俵1
-      payRice(p, 1); p.workersUsed += 1; p.builtThisTurn = true;
+      if (p.workersUsed + 2 > p.workers) return INVALID_MOVE;   // 働き手2
+      p.workersUsed += 2; p.builtThisTurn = true;
       p.project.gauge += 1;
       addLog(G, `${p.name}：大事業を造営（${p.project.gauge}/${PROJECT_MAX}）`);
       // 段階達成ボーナス（逐次）

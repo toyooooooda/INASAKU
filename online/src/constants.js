@@ -11,8 +11,8 @@ export const RAT_OUTBREAK_CHANCE = 0.2;
 export const GAME_YEARS = 5;
 
 // ===== 大事業（多年プロジェクト）=====
-// 造営は「1手番に1回だけ」＝労働者を増やしても加速できず、多くのラウンドを要する。
-// 道中は米も評判も生まず、段階到達で逐次VP（後半ほど加速）。
+// 造営は「働き手2・1手番に1回だけ」＝片手間では無理で、労働者を増やしても加速できない。
+// 俵は使わない（少ない田で食いつなぐ専業ルート）。段階到達で逐次VP（後半ほど加速）。
 export const PROJECT_MAX = 15;
 export const PROJECT_MILESTONES = [
   { gauge: 3, reward: 5 },
