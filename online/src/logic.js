@@ -236,7 +236,9 @@ export function endOfRound(G, random) {
     // 最終年の夏R2終了 → 秋冬スキップして即終了
     if (isFinalYear && endOfSummer) {
       addLog(G, `=== ${G.year}年 夏終了 → ゲーム終了 ===`);
-      runYearEndAuto(G, random, { skipRent: true }); // 租免除・保管/ネズミ/維持費は徴収
+      // 最終集計では年度末の徴収（租・保管・ネズミ・維持費）は行わない
+      // ※翌年がないため戦略的意味がなく、貯めた俵＝得点を削るだけになるため
+      addLog(G, '最終集計：年度末の徴収なし（俵はそのまま得点に）');
       G.finalScores = computeScores(G);
       G.gameOver = true;
       addLog(G, `=== 終了 🏆 ${G.finalScores[0].name}（${G.finalScores[0].total}点） ===`);
