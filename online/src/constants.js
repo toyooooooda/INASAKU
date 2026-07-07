@@ -67,6 +67,30 @@ export const VARIETIES = {
   献上米: { requiredGrowth: 4, baseQuality: 3, maxQuality: 3, cost: 4, harvestMin: 2, harvestMax: 3, repBonus: 1, unlockYear: 4, desc: '4R・特上スタート・4俵・収穫2〜3・収穫で評判+1' },
 };
 
+// ===== 系譜（隠し目標）と勅命（公開レース目標）=====
+// 系譜：各自に1枚だけ秘密裏に配布。終了時に達成していれば加点（自分だけが知る裏の方針）。
+export const LINEAGE_GOALS = [
+  { id: 'ascetic',   name: '質素倹約の家訓', desc: '道具・牛・倉・水路・水桶を一切持たずに終える', reward: 12 },
+  { id: 'smallfarm', name: '小さな庄',       desc: '終了時 田が3枚以下',                           reward: 12 },
+  { id: 'gourmet',   name: '特上の家',       desc: '終了時 特上を5俵以上保有',                     reward: 12 },
+  { id: 'family',    name: '大家族',         desc: '終了時 働き手6人以上',                         reward: 10 },
+  { id: 'landlord',  name: '大地主',         desc: '終了時 田が7枚以上',                           reward: 12 },
+  { id: 'granary',   name: '蔵持ち',         desc: '終了時 俵30以上を保有',                        reward: 10 },
+  { id: 'devout',    name: '献上の一族',     desc: 'ゲーム中に合計3回以上献上する',                reward: 10 },
+  { id: 'botanist',  name: '品種の匠',       desc: 'ゲーム中に4品種以上植える',                    reward: 10 },
+  { id: 'builder',   name: '造営の血',       desc: '終了時 大事業ゲージ9以上',                     reward: 10 },
+];
+
+// 勅命：毎ゲーム2枚だけ公開。「最初に達成した者」が +8（同時達成は全員）。
+export const EDICTS = [
+  { id: 'e_fields6', name: '拓地の勅',  desc: '最初に田6枚（領地は6マス）に到達', reward: 8 },
+  { id: 'e_rep10',   name: '名声の勅',  desc: '最初に評判10に到達',               reward: 8 },
+  { id: 'e_top3',    name: '特上の勅',  desc: '最初に特上3俵を保有',              reward: 8 },
+  { id: 'e_work5',   name: '人手の勅',  desc: '最初に働き手5人に到達',            reward: 8 },
+  { id: 'e_rice25',  name: '蓄えの勅',  desc: '最初に俵25を保有',                 reward: 8 },
+  { id: 'e_rank2',   name: '位階の勅',  desc: '最初に位階2（大名）に到達',        reward: 8 },
+];
+
 // ===== 上級ルール =====
 // 家系（非対称スタート能力）。上級ルール時、席順に配られる。
 export const CLANS = [

@@ -2,7 +2,7 @@
 // boardgame.io の move/hook 内（immer ドラフト）で G を直接ミューテートして使う。
 import {
   SEASONS, QUALITY_LABEL, RANK_COSTS, RAT_OUTBREAK_CHANCE,
-  VARIETIES, WEATHER_CARDS, diceEffect, GAME_YEARS,
+  VARIETIES, WEATHER_CARDS, diceEffect, GAME_YEARS, LINEAGE_GOALS,
 } from './constants.js';
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -74,6 +74,10 @@ export function createPlayer(i, name) {
     tributeCommit: 0, // 隠し献上の予約量（公開時に一斉精算）
     project: { gauge: 0, score: 0, claimed: 0 }, // 大事業（多年プロジェクト）
     builtThisTurn: false,                        // この手番に造営したか（1手番1回制限）
+    goalId: null,          // 系譜（隠し目標）のID
+    edictBonus: 0,         // 勅命の獲得ボーナス累計
+    donateCount: 0,        // 通算献上回数（系譜判定用）
+    plantedVarieties: [],  // 植えたことのある品種（系譜判定用）
     waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,
@@ -225,6 +229,7 @@ function clearCropsForWinter(G) {
 // 成長 → 季節/ラウンド進行。年が終われば年度末の自動処理を実行し stage='yearEnd'。
 export function endOfRound(G, random) {
   doGrowthPhase(G);
+  checkEdicts(G); // 勅命（公開レース）を毎ラウンド末に判定
   // 手番順のローテーションは turn.order（seatOf）が担当（ここでは何もしない）
 
   const isFinalYear = G.year >= GAME_YEARS;
@@ -351,6 +356,50 @@ export function finishYearEnd(G) {
   addLog(G, `=== ${G.year}年目 開始 ===`);
 }
 
+// ===== 系譜（隠し目標）の達成判定 =====
+export function lineageAchieved(goalId, p) {
+  switch (goalId) {
+    case 'ascetic':   return !p.tools.plow && !p.tools.ox && !p.tools.barn && !p.tools.canal && !p.tools.tank;
+    case 'smallfarm': return p.fields.length <= 3;
+    case 'gourmet':   return p.rice[2].count >= 5;
+    case 'family':    return p.workers >= 6;
+    case 'landlord':  return p.fields.length >= 7;
+    case 'granary':   return totalRiceCount(p) >= 30;
+    case 'devout':    return (p.donateCount || 0) >= 3;
+    case 'botanist':  return (p.plantedVarieties || []).length >= 4;
+    case 'builder':   return !!(p.project && p.project.gauge >= 9);
+    default: return false;
+  }
+}
+
+// ===== 勅命（公開レース）の達成判定と獲得処理 =====
+function edictAchieved(edictId, p) {
+  switch (edictId) {
+    case 'e_fields6': return p.fields.length >= 6;
+    case 'e_rep10':   return p.reputation >= 10;
+    case 'e_top3':    return p.rice[2].count >= 3;
+    case 'e_work5':   return p.workers >= 5;
+    case 'e_rice25':  return totalRiceCount(p) >= 25;
+    case 'e_rank2':   return p.rank >= 2;
+    default: return false;
+  }
+}
+
+// 毎ラウンド末に呼ぶ。未獲得の勅命を最初に満たしたプレイヤーが獲得（同時は全員）。
+export function checkEdicts(G) {
+  if (!G.edicts) return;
+  G.edicts.forEach((e) => {
+    if (e.claimedBy) return;
+    const winners = G.players.filter((p) => edictAchieved(e.id, p));
+    if (winners.length > 0) {
+      e.claimedBy = winners.map((p) => p.id);
+      winners.forEach((p) => { p.edictBonus = (p.edictBonus || 0) + e.reward; });
+      addLog(G, `📜 勅命【${e.name}】達成！ ${winners.map((p) => p.name).join('・')} +${e.reward}点`);
+      addEvent(G, 'edict_claimed', null, { edict: e.id, by: e.claimedBy });
+    }
+  });
+}
+
 // 案3：名声の称号（最終評判のしきい値で恒久ボーナス・累積）
 function repTitleBonus(rep) {
   let b = 0;
@@ -361,19 +410,25 @@ function repTitleBonus(rep) {
 }
 
 export function computeScores(G) {
+  // 最終判定の前に、未獲得の勅命を最後にもう一度チェック
+  checkEdicts(G);
   const rows = G.players.map((p) => {
     const rice = ricePoints(p);
+    const goal = LINEAGE_GOALS.find((g) => g.id === p.goalId);
+    const goalOK = goal && lineageAchieved(p.goalId, p);
     return {
       id: p.id, name: p.name, ricePoints: rice, reputation: p.reputation,
-      titleBonus: repTitleBonus(p.reputation), projectBonus: (p.project && p.project.score) || 0, rank: p.rank,
+      titleBonus: repTitleBonus(p.reputation), projectBonus: (p.project && p.project.score) || 0,
+      goalBonus: goalOK ? goal.reward : 0, goalName: goal ? goal.name : null, goalAchieved: !!goalOK,
+      edictBonus: p.edictBonus || 0, rank: p.rank,
     };
   });
   // 案1：名声第一（最終評判が最多のプレイヤーに +5・同点は全員）
   const maxRep = Math.max(0, ...rows.map((r) => r.reputation));
   rows.forEach((r) => { r.fameBonus = (maxRep > 0 && r.reputation === maxRep) ? 5 : 0; });
-  // 米寿（俵＋評判＋称号＋名声＋大事業の小計が88以上で+10）
+  // 米寿（俵＋評判＋称号＋名声＋大事業＋系譜＋勅命の小計が88以上で+10）
   rows.forEach((r) => {
-    const sub = r.ricePoints + r.reputation + r.titleBonus + r.fameBonus + r.projectBonus;
+    const sub = r.ricePoints + r.reputation + r.titleBonus + r.fameBonus + r.projectBonus + r.goalBonus + r.edictBonus;
     r.misuBonus = sub >= 88 ? 10 : 0;
     r.total = sub + r.misuBonus;
   });

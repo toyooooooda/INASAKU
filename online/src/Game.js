@@ -2,7 +2,7 @@
 // M1: 隠匿なし（playerView 未設定）。phases は使わず G.stage で年度末を表現。
 // 明示パス（dist/cjs）：Node(server) と Vite(client) の両方で解決できる
 import { INVALID_MOVE } from 'boardgame.io/dist/cjs/core.js';
-import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS, makeTerritoryMap, territoryCorners, PROJECT_MAX, PROJECT_MILESTONES } from './constants.js';
+import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLANS, makeTerritoryMap, territoryCorners, PROJECT_MAX, PROJECT_MILESTONES, LINEAGE_GOALS, EDICTS } from './constants.js';
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField, resetField,
@@ -42,6 +42,8 @@ export const HojoSuiden = {
       advanced,                                  // 上級ルール ON/OFF
       hiddenTribute: advanced && ctx.numPlayers >= 3, // 隠し献上（3人以上）
       needClanDeal: advanced,                    // 初回 onBegin で家系をランダム配布
+      needGoalDeal: true,                        // 初回 onBegin で系譜（隠し目標）と勅命を配布
+      edicts: null,                              // 公開レース目標（2枚）
       turnCount: 0,                              // 通算手番数（手番順ローテーションに使用）
       weather: null, weatherDeck: [], cloudyThisRound: false, ratOutbreakDone: false,
       waterPool: 0,
@@ -97,6 +99,17 @@ export const HojoSuiden = {
       if (!G.yearEndDone) G.yearEndDone = new Array(G.players.length).fill(false);
       G.playerDone[idx] = false;
       G.yearEndDone[idx] = false;
+
+      // 初回：系譜（隠し目標）を各自に1枚、勅命（公開レース）を2枚配布
+      if (G.needGoalDeal) {
+        const goals = random.Shuffle([...LINEAGE_GOALS]);
+        G.players.forEach((p, i) => { p.goalId = goals[i % goals.length].id; });
+        const picked = random.Shuffle([...EDICTS]).slice(0, 2);
+        G.edicts = picked.map((e) => ({ id: e.id, name: e.name, desc: e.desc, reward: e.reward, claimedBy: null }));
+        G.needGoalDeal = false;
+        addLog(G, `📜 勅命公開：【${picked[0].name}】${picked[0].desc} ／【${picked[1].name}】${picked[1].desc}`);
+        addLog(G, '🎴 各家に系譜（秘密の家訓）が配られた');
+      }
 
       // 初回：家系をランダム配布（上級ルール・乱数が使える onBegin で実行）
       if (G.advanced && G.needClanDeal) {
@@ -160,6 +173,8 @@ export const HojoSuiden = {
       f.fertilized = false; f.growthFertilized = false; f.tilled = false;
       if (useNae) p.seedlings -= 1;
       p.workersUsed += 1;
+      if (!p.plantedVarieties) p.plantedVarieties = [];
+      if (!p.plantedVarieties.includes(variety)) p.plantedVarieties.push(variety); // 系譜「品種の匠」用
       addLog(G, `${p.name}：${variety}植付（-${seedCost}俵${useNae ? '・苗' : ''}${tilledBonus ? '・耕地' : ''}）`);
       addEvent(G, 'plant', playerID, { variety, cost: seedCost, useSeedling: useNae, tilled: !!tilledBonus });
     },
@@ -336,6 +351,7 @@ export const HojoSuiden = {
       if (quality < 2 || quality > 3 || p.rice[quality - 1].count < 1) return INVALID_MOVE;
       const repGain = quality === 3 ? 3 : 2; // 特上+3、上質+2
       p.rice[quality - 1].count -= 1; p.reputation += repGain; p.donatedThisYear = true; p.workersUsed += 2;
+      p.donateCount = (p.donateCount || 0) + 1; // 系譜「献上の一族」用
       addLog(G, `${p.name}：献上（${quality === 3 ? '特上' : '上質'}）→評判+${repGain}（計${p.reputation}）`);
       addEvent(G, 'donate', playerID, { quality });
     },

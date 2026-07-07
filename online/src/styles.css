@@ -73,6 +73,19 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .chip.planted { background: #eaf6ea; }
 .tag { background: #eee; border-radius: 4px; padding: 0 4px; font-size: 11px; color: #777; }
 
+/* 勅命（公開レース目標） */
+.edicts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.edict { flex: 1; min-width: 220px; font-size: 12px; background: #fdf6e0; border: 1px solid #e2cf96; border-radius: 8px; padding: 6px 10px; color: #6a5518; }
+.edict b { color: #8a5000; margin-left: 4px; }
+.edict-open { color: #998a5e; margin-left: 4px; }
+.edict--done { background: #f0ece2; border-color: #cfc8b4; color: #999; }
+
+/* 系譜（隠し目標）バー */
+.goal-bar { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #7a3a6a; background: #f9eef6; border: 1px dashed #dbaece; border-radius: 7px; padding: 4px 8px; margin: 4px 0; }
+.goal-bar b { margin-left: auto; color: #8a2a6a; }
+.goal-bar--ok { background: #edf7ec; border-color: #a4cf9e; color: #2c5e1a; }
+.goal-bar--ok b { color: #2c5e1a; }
+
 /* 大事業（多年プロジェクト）バー */
 .project-bar { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6a4a8a; background: #f1ecf8; border: 1px solid #d6c8ee; border-radius: 7px; padding: 4px 8px; margin: 4px 0; }
 .project-bar b { color: #4a2e7a; margin-left: auto; }

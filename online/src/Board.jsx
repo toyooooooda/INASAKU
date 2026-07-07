@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS, CLANS, PLAYER_COLORS } from './constants.js';
+import { SEASONS, QUALITY_LABEL, RANK_LABELS, RANK_COSTS, VARIETIES, TOOLS, HAND_CARDS, CLANS, PLAYER_COLORS, LINEAGE_GOALS } from './constants.js';
+import { lineageAchieved } from './logic.js';
 
 const CLAN_BY_ID = Object.fromEntries(CLANS.map((c) => [c.id, c]));
 
@@ -142,6 +143,18 @@ function PlayerPanel({ p, isCurrent, isMe, territory, onFieldClick }) {
         <span className="rice-chip rq2">上質 {p.rice[1].count}</span>
         <span className="rice-chip rq3">特上 {p.rice[2].count}</span>
       </div>
+      {isMe && p.goalId && (() => {
+        const g = LINEAGE_GOALS.find((x) => x.id === p.goalId);
+        if (!g) return null;
+        const ok = lineageAchieved(p.goalId, p);
+        return (
+          <div className={`goal-bar${ok ? ' goal-bar--ok' : ''}`}
+            title={'系譜（秘密の家訓）：自分にだけ見える最終目標\n終了時に達成していれば加点される'}>
+            🎴 {g.name}：{g.desc}
+            <b>{ok ? `✓ +${g.reward}` : `+${g.reward}`}</b>
+          </div>
+        );
+      })()}
       {p.project && p.project.gauge > 0 && (
         <div className="project-bar" title="大事業の造営ゲージ（1手番1回ずつ）&#10;段階到達でVP：3/6/9/12/15 → +5/+7/+10/+14/+18">
           🏛️ 大事業 {p.project.gauge}/15
@@ -903,7 +916,9 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         <h1>🏆 ゲーム終了</h1>
         <ol>
           {scores.map((s) => (
-            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.titleBonus ? `＋称号${s.titleBonus}` : ''}{s.fameBonus ? `＋名声${s.fameBonus}` : ''}{s.projectBonus ? `＋大事業${s.projectBonus}` : ''}{s.misuBonus ? '＋米寿10' : ''}）</li>
+            <li key={s.id}>{s.name}：<b>{s.total}点</b>（俵{s.ricePoints}＋評判{s.reputation}{s.titleBonus ? `＋称号${s.titleBonus}` : ''}{s.fameBonus ? `＋名声${s.fameBonus}` : ''}{s.projectBonus ? `＋大事業${s.projectBonus}` : ''}{s.goalBonus ? `＋系譜${s.goalBonus}` : ''}{s.edictBonus ? `＋勅命${s.edictBonus}` : ''}{s.misuBonus ? '＋米寿10' : ''}）
+              {s.goalName && <span style={{ fontSize: 12, color: '#888' }}>　系譜「{s.goalName}」{s.goalAchieved ? '達成✓' : '未達成'}</span>}
+            </li>
           ))}
         </ol>
       </div>
@@ -932,6 +947,19 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         <div className="weather" onClick={() => setShowWeather(true)} title="クリックで再表示" style={{ cursor: 'pointer' }}>
           天候【{G.weather.card.name}】{G.weather.effects.map((e, i) => `${e.icon}${G.weather.dice[i]}`).join(' ')}
           　🪣 水プール <b style={{ color: G.waterPool === 0 ? '#e74c3c' : G.waterPool <= 1 ? '#e67e22' : '#2980b9' }}>{G.waterPool}</b>
+        </div>
+      )}
+
+      {G.edicts && (
+        <div className="edicts">
+          {G.edicts.map((e) => (
+            <span key={e.id} className={`edict${e.claimedBy ? ' edict--done' : ''}`} title={e.desc}>
+              📜 {e.name}（+{e.reward}）
+              {e.claimedBy
+                ? <b>→ {e.claimedBy.map((id) => G.players[id]?.name).join('・')}</b>
+                : <span className="edict-open">{e.desc}</span>}
+            </span>
+          ))}
         </div>
       )}
 
