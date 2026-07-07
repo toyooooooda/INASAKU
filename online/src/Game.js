@@ -6,7 +6,7 @@ import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLAN
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField, resetField,
-  drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource,
+  drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource, countAct,
 } from './logic.js';
 
 const ok = (cond) => (cond ? undefined : INVALID_MOVE);
@@ -175,6 +175,7 @@ export const HojoSuiden = {
       p.workersUsed += 1;
       if (!p.plantedVarieties) p.plantedVarieties = [];
       if (!p.plantedVarieties.includes(variety)) p.plantedVarieties.push(variety); // 系譜「品種の匠」用
+      countAct(p, 'plant'); // 系譜「早乙女の家」用
       addLog(G, `${p.name}：${variety}植付（-${seedCost}俵${useNae ? '・苗' : ''}${tilledBonus ? '・耕地' : ''}）`);
       addEvent(G, 'plant', playerID, { variety, cost: seedCost, useSeedling: useNae, tilled: !!tilledBonus });
     },
@@ -191,6 +192,7 @@ export const HojoSuiden = {
       const gain = (src !== 'empty' || isWaterClan) ? 2 : 1;
       f.water = clamp(f.water + gain, 0, 5);
       p.workersUsed += 1;
+      countAct(p, 'irrigate'); // 系譜「水番の家」用
       const note = src === 'pool' ? '' : src === 'tank' ? '（水桶）' : '（プール不足・+1）';
       addLog(G, `${p.name}：水を引く${note} +${gain} →水位${f.water}　プール残${G.waterPool}`);
       addEvent(G, 'irrigate', playerID, { water: f.water, src });
@@ -210,6 +212,7 @@ export const HojoSuiden = {
       f1.water = clamp(f1.water + (src1 !== 'empty' ? 2 : 1), 0, 5);
       f2.water = clamp(f2.water + (src2 !== 'empty' ? 2 : 1), 0, 5);
       p.workersUsed += 1;
+      countAct(p, 'irrigate'); // 系譜「水番の家」用（水路も1回と数える）
       addLog(G, `${p.name}：水路で引く →田${p.fields.indexOf(f1)+1}水位${f1.water}・田${p.fields.indexOf(f2)+1}水位${f2.water}　プール残${G.waterPool}`);
       addEvent(G, 'irrigateTwo', playerID, {});
     },
@@ -254,6 +257,7 @@ export const HojoSuiden = {
       const clanP = (G.advanced && p.clan === 'pioneer') ? 1 : 0; // 開墾の民
       const bonus = (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0) + clanP;
       const before = w.gauge; w.gauge = Math.min(3, w.gauge + 1 + bonus); p.workersUsed += 1;
+      countAct(p, 'reclaim'); // 系譜「開墾の血」用
       addLog(G, `${p.name}：開墾 +${w.gauge - before} →${w.gauge}/3`);
       if (w.gauge >= 3) {
         if (p.fields.length < p.landLimit) {
@@ -303,6 +307,7 @@ export const HojoSuiden = {
         && Math.abs(t.row - tile.row) + Math.abs(t.col - tile.col) === 1);
       if (!adj) return INVALID_MOVE;
       p.workersUsed += 1;
+      countAct(p, 'reclaim'); // 系譜「開墾の血」用（開拓も1回と数える）
       const clanP = (G.advanced && p.clan === 'pioneer') ? 1 : 0;
       const inc = 1 + (p.tools.plow ? 1 : 0) + (p.tools.ox ? 1 : 0) + clanP;
       tile.gauge[idx] = (tile.gauge[idx] || 0) + inc;
@@ -334,6 +339,7 @@ export const HojoSuiden = {
       const q = clamp(f.quality, 1, 3);
       const repBonus = (def && def.repBonus) || 0;
       p.rice[q - 1].count += count; p.workersUsed += w;
+      countAct(p, 'harvest'); // 系譜「刈り入れの名手」用
       if (q >= 2) { const gain = 1 + repBonus; p.reputation += gain; addLog(G, `${p.name}：${f.variety}収穫 ${count}俵 評判+${gain}`); }
       else {
         addLog(G, `${p.name}：${f.variety}収穫 並${count}俵`);
@@ -362,6 +368,7 @@ export const HojoSuiden = {
       if (G.stage !== 'action' || G.seasonIdx < 2) return INVALID_MOVE;
       if (p.workersUsed + 2 > p.workers) return INVALID_MOVE;
       p.rice[0].count += 2; p.workersUsed += 2;
+      countAct(p, 'migrant'); // 系譜「出稼ぎの一族」用
       addLog(G, `${p.name}：出稼ぎ→並2俵`);
       addEvent(G, 'migrant', playerID, { gain: 2 });
     },
@@ -428,6 +435,7 @@ export const HojoSuiden = {
           G.cardDiscard = [];
         }
         p.workersUsed += 2;
+        countAct(p, 'draw'); // 系譜「札読みの家」用
         if (!p.hand) p.hand = [];
         const card = G.cardDeck.pop();
         p.hand.push(card);

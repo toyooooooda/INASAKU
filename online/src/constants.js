@@ -69,16 +69,16 @@ export const VARIETIES = {
 
 // ===== 系譜（隠し目標）と勅命（公開レース目標）=====
 // 系譜：各自に1枚だけ秘密裏に配布。終了時に達成していれば加点（自分だけが知る裏の方針）。
+// すべて「行動回数型」＝最終得点と二重取りにならず、プレイスタイルだけを誘導する。
 export const LINEAGE_GOALS = [
-  { id: 'ascetic',   name: '質素倹約の家訓', desc: '道具・牛・倉・水路・水桶を一切持たずに終える', reward: 12 },
-  { id: 'smallfarm', name: '小さな庄',       desc: '終了時 田が3枚以下',                           reward: 12 },
-  { id: 'gourmet',   name: '特上の家',       desc: '終了時 特上を5俵以上保有',                     reward: 12 },
-  { id: 'family',    name: '大家族',         desc: '終了時 働き手6人以上',                         reward: 10 },
-  { id: 'landlord',  name: '大地主',         desc: '終了時 田が7枚以上',                           reward: 12 },
-  { id: 'granary',   name: '蔵持ち',         desc: '終了時 俵30以上を保有',                        reward: 10 },
-  { id: 'devout',    name: '献上の一族',     desc: 'ゲーム中に合計3回以上献上する',                reward: 10 },
-  { id: 'botanist',  name: '品種の匠',       desc: 'ゲーム中に4品種以上植える',                    reward: 10 },
-  { id: 'builder',   name: '造営の血',       desc: '終了時 大事業ゲージ9以上',                     reward: 10 },
+  { id: 'devout',    name: '献上の一族', desc: 'ゲーム中に合計3回以上献上する',            reward: 12 },
+  { id: 'botanist',  name: '品種の匠',   desc: 'ゲーム中に4品種以上植える',                reward: 10 },
+  { id: 'reaper',    name: '刈り入れの名手', desc: 'ゲーム中に合計8回以上収穫する',        reward: 10 },
+  { id: 'sower',     name: '早乙女の家', desc: 'ゲーム中に合計8回以上植え付けする',        reward: 10 },
+  { id: 'waterman',  name: '水番の家',   desc: 'ゲーム中に合計10回以上「水を引く」',       reward: 10 },
+  { id: 'pioneer_b', name: '開墾の血',   desc: 'ゲーム中に合計6回以上 開墾/開拓する',      reward: 10 },
+  { id: 'reader',    name: '札読みの家', desc: 'ゲーム中に合計4枚以上カードを引く',        reward: 10 },
+  { id: 'migrant_b', name: '出稼ぎの一族', desc: 'ゲーム中に合計4回以上出稼ぎする',        reward: 10 },
 ];
 
 // 勅命：毎ゲーム2枚だけ公開。「最初に達成した者」が +8（同時達成は全員）。

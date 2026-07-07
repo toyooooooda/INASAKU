@@ -78,6 +78,7 @@ export function createPlayer(i, name) {
     edictBonus: 0,         // 勅命の獲得ボーナス累計
     donateCount: 0,        // 通算献上回数（系譜判定用）
     plantedVarieties: [],  // 植えたことのある品種（系譜判定用）
+    actCounts: {},         // 行動回数の記録（系譜判定用：plant/harvest/irrigate/reclaim/draw/migrant）
     waterReserve: 0,
     donatedThisYear: false, strawworkThisYear: false,
     penaltyNextSpring: 0,
@@ -357,19 +358,26 @@ export function finishYearEnd(G) {
 }
 
 // ===== 系譜（隠し目標）の達成判定 =====
+// すべて行動回数型（最終得点との二重取りなし）
 export function lineageAchieved(goalId, p) {
+  const a = p.actCounts || {};
   switch (goalId) {
-    case 'ascetic':   return !p.tools.plow && !p.tools.ox && !p.tools.barn && !p.tools.canal && !p.tools.tank;
-    case 'smallfarm': return p.fields.length <= 3;
-    case 'gourmet':   return p.rice[2].count >= 5;
-    case 'family':    return p.workers >= 6;
-    case 'landlord':  return p.fields.length >= 7;
-    case 'granary':   return totalRiceCount(p) >= 30;
     case 'devout':    return (p.donateCount || 0) >= 3;
     case 'botanist':  return (p.plantedVarieties || []).length >= 4;
-    case 'builder':   return !!(p.project && p.project.gauge >= 9);
+    case 'reaper':    return (a.harvest || 0) >= 8;
+    case 'sower':     return (a.plant || 0) >= 8;
+    case 'waterman':  return (a.irrigate || 0) >= 10;
+    case 'pioneer_b': return (a.reclaim || 0) >= 6;
+    case 'reader':    return (a.draw || 0) >= 4;
+    case 'migrant_b': return (a.migrant || 0) >= 4;
     default: return false;
   }
+}
+
+// 行動回数を記録（系譜判定用）
+export function countAct(p, key) {
+  if (!p.actCounts) p.actCounts = {};
+  p.actCounts[key] = (p.actCounts[key] || 0) + 1;
 }
 
 // ===== 勅命（公開レース）の達成判定と獲得処理 =====
