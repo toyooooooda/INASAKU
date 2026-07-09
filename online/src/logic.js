@@ -349,6 +349,7 @@ function revealTribute(G) {
 // ===== 年度末の対話完了後（最終プレイヤーの手番終了時に呼ぶ）=====
 export function finishYearEnd(G) {
   revealTribute(G);
+  checkEdicts(G); // 年度末の雇用・昇進を全員が終えた後に一括判定（手番順で不公平にならない）
   G.players.forEach((p) => { p.donatedThisYear = false; p.strawworkThisYear = false; p.workersUsed = 0; });
   takeYearSnapshot(G);
   // 年度末は最終年の前年まで（最終年は夏終了で endOfRound から直接終わる）
@@ -385,7 +386,7 @@ function edictAchieved(edictId, p) {
   switch (edictId) {
     case 'e_fields6': return p.fields.length >= 6;
     case 'e_rep10':   return p.reputation >= 10;
-    case 'e_top6':    return p.rice[2].count >= 6;
+    case 'e_top8':    return p.rice[2].count >= 8;
     case 'e_work5':   return p.workers >= 5;
     case 'e_rice35':  return totalRiceCount(p) >= 35;
     case 'e_rank2':   return p.rank >= 2;
