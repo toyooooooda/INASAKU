@@ -73,6 +73,9 @@ header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; col
 .chip.planted { background: #eaf6ea; }
 .tag { background: #eee; border-radius: 4px; padding: 0 4px; font-size: 11px; color: #777; }
 
+/* 参加待ちバナー */
+.waiting-banner { background: #fdf0e0; border: 1px solid #e8b96a; border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-size: 13px; color: #7a5510; font-weight: bold; }
+
 /* 勅命（公開レース目標） */
 .edicts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .edict { flex: 1; min-width: 220px; font-size: 12px; background: #fdf6e0; border: 1px solid #e2cf96; border-radius: 8px; padding: 6px 10px; color: #6a5518; }

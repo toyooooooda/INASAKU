@@ -11,6 +11,17 @@ import {
 
 const ok = (cond) => (cond ? undefined : INVALID_MOVE);
 
+// 全 move をサーバー権威（client: false）に統一するラッパー。
+// 楽観実行（クライアント側の先行適用）を全廃することで、client:false の move と
+// 通常 move が混在したときに起きる stateID ずれ→move が黙って破棄→手番プレイヤーが
+// デッドロック、という「たまにターンが終了できない」類の不具合を根絶する。
+function serverOnly(moves) {
+  return Object.fromEntries(Object.entries(moves).map(([name, m]) => [
+    name,
+    typeof m === 'function' ? { move: m, client: false } : { ...m, client: false },
+  ]));
+}
+
 // 手番の席を返す：ラウンドごとに先頭を1つずつ進める（毎ラウンド手番順が変わる）
 // turnCount=0,1,2(=1巡目) → 3,4,5(2巡目は+1ずれ) ...
 function seatOf(turnCount, n) {
@@ -151,7 +162,7 @@ export const HojoSuiden = {
 
   endIf: ({ G }) => (G.gameOver ? { scores: G.finalScores } : undefined),
 
-  moves: {
+  moves: serverOnly({
     // ---- 植え付け（春夏）----
     plant: ({ G, playerID }, fieldId, variety, useSeedling) => {
       const p = G.players[Number(playerID)];
@@ -616,5 +627,5 @@ export const HojoSuiden = {
       const trimmed = String(name || '').trim().slice(0, 16);
       if (trimmed) p.name = trimmed;
     },
-  },
+  }),
 };

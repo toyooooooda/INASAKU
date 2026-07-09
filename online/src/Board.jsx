@@ -950,6 +950,14 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         </div>
       )}
 
+      {matchData && matchData.some((m) => !m.name) && (
+        <div className="waiting-banner">
+          ⏳ 参加待ち：{matchData.filter((m) => m.name).length}/{matchData.length}人
+          — 全員が参加するまで待ってください（空席に手番が回るとゲームが止まります）。
+          部屋コードを共有して残りのプレイヤーを招待してください。
+        </div>
+      )}
+
       {G.edicts && (
         <div className="edicts">
           {G.edicts.map((e) => (
