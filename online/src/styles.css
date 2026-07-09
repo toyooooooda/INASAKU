@@ -18,6 +18,10 @@ body { margin: 0; font-family: system-ui, "Segoe UI", "Hiragino Sans", sans-seri
 header { display: flex; gap: 12px; align-items: center; background: #8d6e3a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
 .turn-badge { margin-left: auto; font-size: 13px; background: rgba(255,255,255,0.18); border-radius: 999px; padding: 3px 12px; }
 .turn-badge.mine { background: #cde6c0; color: #2c5e1a; font-weight: bold; }
+.turn-timer { font-size: 12px; background: rgba(255,255,255,0.18); border-radius: 999px; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+.turn-timer.warn { background: #e6533a; color: #fff; font-weight: bold; animation: timerpulse 1s ease-in-out infinite; }
+@keyframes timerpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.turn-warn { background: #fde7e2; border: 1px solid #e6a58c; color: #a83b1a; font-size: 12px; font-weight: bold; border-radius: 7px; padding: 5px 10px; margin-bottom: 8px; }
 .weather { background: #e6f0fa; border: 1px solid #b9d6f2; border-radius: 8px; padding: 6px 10px; margin: 8px 0; font-size: 13px; }
 
 /* 領地モードの盤面 */

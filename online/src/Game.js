@@ -43,12 +43,14 @@ export const HojoSuiden = {
   setup: ({ ctx }, setupData) => {
     const advanced = !!(setupData && setupData.advanced);
     const mode = (setupData && setupData.mode) === 'territory' ? 'territory' : 'normal';
+    const turnSeconds = Math.max(0, (setupData && setupData.turnSeconds) | 0); // 0=無制限
     const order = [...Array(ctx.numPlayers).keys()].map(String);
     const G = {
       stage: 'action',
       year: 1, seasonIdx: 0, roundInSeason: 0,
       totalYears: GAME_YEARS,
       mode,                                      // 'normal' | 'territory'
+      turnSeconds,                               // 手番の制限時間（秒・0=無制限）
       map: null,                                 // 領地モードの共有盤面
       advanced,                                  // 上級ルール ON/OFF
       hiddenTribute: advanced && ctx.numPlayers >= 3, // 隠し献上（3人以上）
@@ -111,15 +113,17 @@ export const HojoSuiden = {
       G.playerDone[idx] = false;
       G.yearEndDone[idx] = false;
 
-      // 初回：系譜（隠し目標）を各自に1枚、勅命（公開レース）を2枚配布
+      // 初回：勅命（公開レース）を2枚配布（通常ルール）。系譜（隠し目標）は上級ルールのみ。
       if (G.needGoalDeal) {
-        const goals = random.Shuffle([...LINEAGE_GOALS]);
-        G.players.forEach((p, i) => { p.goalId = goals[i % goals.length].id; });
         const picked = random.Shuffle([...EDICTS]).slice(0, 2);
         G.edicts = picked.map((e) => ({ id: e.id, name: e.name, desc: e.desc, reward: e.reward, claimedBy: null }));
-        G.needGoalDeal = false;
         addLog(G, `📜 勅命公開：【${picked[0].name}】${picked[0].desc} ／【${picked[1].name}】${picked[1].desc}`);
-        addLog(G, '🎴 各家に系譜（秘密の家訓）が配られた');
+        if (G.advanced) {
+          const goals = random.Shuffle([...LINEAGE_GOALS]);
+          G.players.forEach((p, i) => { p.goalId = goals[i % goals.length].id; });
+          addLog(G, '🎴 各家に系譜（秘密の家訓）が配られた');
+        }
+        G.needGoalDeal = false;
       }
 
       // 初回：家系をランダム配布（上級ルール・乱数が使える onBegin で実行）

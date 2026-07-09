@@ -898,6 +898,29 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
     }
   }, [myTurn]);
 
+  // 手番の制限時間：自分の手番中だけカウントダウン、0で自動的に手番終了。
+  const [secLeft, setSecLeft] = useState(null);
+  const firedRef = useRef(false);
+  useEffect(() => {
+    const secs = G.turnSeconds || 0;
+    firedRef.current = false;
+    if (!secs || !myTurn || ctx.gameover) { setSecLeft(null); return; }
+    let remaining = secs;
+    setSecLeft(remaining);
+    const id = setInterval(() => {
+      remaining -= 1;
+      setSecLeft(remaining);
+      if (remaining <= 0 && !firedRef.current) {
+        firedRef.current = true;
+        clearInterval(id);
+        if (G.stage === 'yearEnd') moves.yearEndDecision(0, false, 0); // 時間切れは既定（増員/昇進/献上なし）
+        else moves.doneTurn();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+    // ctx.turn ごとにリセット（手番が変わるたびに再スタート）
+  }, [ctx.turn, myTurn, G.stage, G.turnSeconds, ctx.gameover]);
+
   // ラウンドキーが変わるたびに天候オーバーレイを表示（クライアント個別・サーバ通信なし）
   const roundKey = `${G.year}-${G.seasonIdx}-${G.roundInSeason}`;
   const prevRoundKey = useRef(null);
@@ -941,6 +964,11 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
         <span className={`turn-badge ${myTurn ? 'mine' : ''}`}>
           {myTurn ? '▶ あなたの手番' : `手番：${G.players[Number(ctx.currentPlayer)]?.name}`}
         </span>
+        {secLeft != null && (
+          <span className={`turn-timer${secLeft <= 10 ? ' warn' : ''}`} title="手番の制限時間。0で自動的に手番終了">
+            ⏱ {secLeft}s
+          </span>
+        )}
       </header>
 
       {G.weather && G.stage === 'action' && (
@@ -980,6 +1008,9 @@ export function Board({ G, ctx, moves, events, playerID, matchData }) {
       </div>
 
       <div className="control">
+        {myTurn && secLeft != null && secLeft <= 10 && (
+          <div className="turn-warn">⏱ まもなく自動で手番終了（残り{secLeft}秒）</div>
+        )}
         {!me ? <p>観戦中（席が割り当てられていません）</p>
           : !myTurn ? <p>他のプレイヤーの手番です…</p>
             : G.stage === 'yearEnd' ? <YearEndPanel G={G} me={me} moves={moves} />

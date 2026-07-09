@@ -385,9 +385,9 @@ function edictAchieved(edictId, p) {
   switch (edictId) {
     case 'e_fields6': return p.fields.length >= 6;
     case 'e_rep10':   return p.reputation >= 10;
-    case 'e_top3':    return p.rice[2].count >= 3;
+    case 'e_top6':    return p.rice[2].count >= 6;
     case 'e_work5':   return p.workers >= 5;
-    case 'e_rice25':  return totalRiceCount(p) >= 25;
+    case 'e_rice35':  return totalRiceCount(p) >= 35;
     case 'e_rank2':   return p.rank >= 2;
     default: return false;
   }

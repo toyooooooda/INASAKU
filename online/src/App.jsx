@@ -31,6 +31,7 @@ export function App() {
   const [numPlayers, setNumPlayers] = useState(2);
   const [advanced, setAdvanced] = useState(false);
   const [gameMode, setGameMode] = useState('normal');
+  const [turnSeconds, setTurnSeconds] = useState(0);
   const [matchID, setMatchIDInput] = useState('');
   const [seat, setSeat] = useState('1');
   const [err, setErr] = useState('');
@@ -40,7 +41,7 @@ export function App() {
     if (!name.trim()) { setErr('名前を入力してください'); return; }
     setLoading(true); setErr('');
     try {
-      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers, setupData: { advanced, mode: gameMode } });
+      const { matchID: mid } = await apiPost(`/games/hojo-suiden/create`, { numPlayers, setupData: { advanced, mode: gameMode, turnSeconds } });
       const { playerCredentials } = await apiPost(`/games/hojo-suiden/${mid}/join`, {
         playerID: '0', playerName: name.trim(),
       });
@@ -123,6 +124,15 @@ export function App() {
           <select value={gameMode} onChange={e => setGameMode(e.target.value)}>
             <option value="normal">通常（各自の田を開墾）</option>
             <option value="territory">領地（共有の盤面を取り合う）</option>
+          </select>
+        </label>
+        <label>手番の制限時間<br />
+          <select value={turnSeconds} onChange={e => setTurnSeconds(Number(e.target.value))}>
+            <option value={0}>なし（無制限）</option>
+            <option value={30}>30秒</option>
+            <option value={60}>60秒</option>
+            <option value={90}>90秒</option>
+            <option value={120}>120秒</option>
           </select>
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

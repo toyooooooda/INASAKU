@@ -82,12 +82,13 @@ export const LINEAGE_GOALS = [
 ];
 
 // 勅命：毎ゲーム2枚だけ公開。「最初に達成した者」が +8（同時達成は全員）。
+// 難易度は3〜4年目で届くくらい（評判10を基準に調整）。
 export const EDICTS = [
   { id: 'e_fields6', name: '拓地の勅',  desc: '最初に田6枚（領地は6マス）に到達', reward: 8 },
   { id: 'e_rep10',   name: '名声の勅',  desc: '最初に評判10に到達',               reward: 8 },
-  { id: 'e_top3',    name: '特上の勅',  desc: '最初に特上3俵を保有',              reward: 8 },
+  { id: 'e_top6',    name: '特上の勅',  desc: '最初に特上を6俵 保有',            reward: 8 },
   { id: 'e_work5',   name: '人手の勅',  desc: '最初に働き手5人に到達',            reward: 8 },
-  { id: 'e_rice25',  name: '蓄えの勅',  desc: '最初に俵25を保有',                 reward: 8 },
+  { id: 'e_rice35',  name: '蓄えの勅',  desc: '最初に俵35を保有',                 reward: 8 },
   { id: 'e_rank2',   name: '位階の勅',  desc: '最初に位階2（大名）に到達',        reward: 8 },
 ];
 
