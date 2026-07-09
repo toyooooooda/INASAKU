@@ -349,7 +349,7 @@ function revealTribute(G) {
 // ===== 年度末の対話完了後（最終プレイヤーの手番終了時に呼ぶ）=====
 export function finishYearEnd(G) {
   revealTribute(G);
-  checkEdicts(G); // 年度末の雇用・昇進を全員が終えた後に一括判定（手番順で不公平にならない）
+  checkEdicts(G, true); // 年度末の雇用・昇進・最終保有を全員ぶん一括判定（年度末専用の勅命もここで）
   G.players.forEach((p) => { p.donatedThisYear = false; p.strawworkThisYear = false; p.workersUsed = 0; });
   takeYearSnapshot(G);
   // 年度末は最終年の前年まで（最終年は夏終了で endOfRound から直接終わる）
@@ -394,11 +394,14 @@ function edictAchieved(edictId, p) {
   }
 }
 
-// 毎ラウンド末に呼ぶ。未獲得の勅命を最初に満たしたプレイヤーが獲得（同時は全員）。
-export function checkEdicts(G) {
+// 勅命の達成判定。atYearEnd=false（行動中）では yearEndOnly の勅命はスキップし、
+// 年度末（finishYearEnd）と最終集計でのみ判定する＝「年度末に保有」を正しく評価する。
+// 未獲得の勅命を最初に満たしたプレイヤーが獲得（同時は全員）。
+export function checkEdicts(G, atYearEnd = false) {
   if (!G.edicts) return;
   G.edicts.forEach((e) => {
     if (e.claimedBy) return;
+    if (e.yearEndOnly && !atYearEnd) return; // 年度末専用は行動中は判定しない
     const winners = G.players.filter((p) => edictAchieved(e.id, p));
     if (winners.length > 0) {
       e.claimedBy = winners.map((p) => p.id);
@@ -419,8 +422,8 @@ function repTitleBonus(rep) {
 }
 
 export function computeScores(G) {
-  // 最終判定の前に、未獲得の勅命を最後にもう一度チェック
-  checkEdicts(G);
+  // 最終判定の前に、未獲得の勅命を最後にもう一度チェック（年度末専用も含む）
+  checkEdicts(G, true);
   const rows = G.players.map((p) => {
     const rice = ricePoints(p);
     const goal = LINEAGE_GOALS.find((g) => g.id === p.goalId);

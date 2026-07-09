@@ -88,7 +88,7 @@ export const EDICTS = [
   { id: 'e_rep10',   name: '名声の勅',  desc: '最初に評判10に到達',               reward: 8 },
   { id: 'e_top8',    name: '特上の勅',  desc: '最初に特上を8俵 保有',            reward: 8 },
   { id: 'e_work5',   name: '人手の勅',  desc: '最初に働き手5人に到達',            reward: 8 },
-  { id: 'e_rice35',  name: '蓄えの勅',  desc: '最初に俵35を保有',                 reward: 8 },
+  { id: 'e_rice35',  name: '蓄えの勅',  desc: '最初に年度末で俵35を保有', reward: 8, yearEndOnly: true },
   { id: 'e_rank2',   name: '位階の勅',  desc: '最初に位階2（大名）に到達',        reward: 8 },
 ];
 

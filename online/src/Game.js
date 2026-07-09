@@ -128,7 +128,7 @@ export const HojoSuiden = {
       // 初回：勅命（公開レース）を2枚配布（通常ルール）。系譜（隠し目標）は上級ルールのみ。
       if (G.needGoalDeal) {
         const picked = random.Shuffle([...EDICTS]).slice(0, 2);
-        G.edicts = picked.map((e) => ({ id: e.id, name: e.name, desc: e.desc, reward: e.reward, claimedBy: null }));
+        G.edicts = picked.map((e) => ({ id: e.id, name: e.name, desc: e.desc, reward: e.reward, yearEndOnly: !!e.yearEndOnly, claimedBy: null }));
         addLog(G, `📜 勅命公開：【${picked[0].name}】${picked[0].desc} ／【${picked[1].name}】${picked[1].desc}`);
         if (G.advanced) {
           const goals = random.Shuffle([...LINEAGE_GOALS]);
