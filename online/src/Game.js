@@ -6,7 +6,7 @@ import { VARIETIES, RANK_COSTS, RANK_LABELS, TOOLS, GAME_YEARS, HAND_CARDS, CLAN
 import {
   clamp, totalRiceCount, payRice,
   addLog, addEvent, createPlayer, createField, resetField,
-  drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource, countAct,
+  drawAndApplyWeather, endOfRound, finishYearEnd, consumeWaterSource, countAct, checkEdicts,
 } from './logic.js';
 
 const ok = (cond) => (cond ? undefined : INVALID_MOVE);
@@ -15,11 +15,23 @@ const ok = (cond) => (cond ? undefined : INVALID_MOVE);
 // 楽観実行（クライアント側の先行適用）を全廃することで、client:false の move と
 // 通常 move が混在したときに起きる stateID ずれ→move が黙って破棄→手番プレイヤーが
 // デッドロック、という「たまにターンが終了できない」類の不具合を根絶する。
+// あわせて、行動フェーズの move 成功直後に勅命を即判定する（名声・拓地・特上などを
+// 「達成した瞬間に先着1人が獲得」＝ラウンド末までの後追い同着を防ぐ）。
+// 年度末は stage が 'yearEnd' なので即判定はスキップし、finishYearEnd の一括判定に任せる
+// （人手・位階は同時到達＝全員獲得で手番順の不公平を出さない）。
 function serverOnly(moves) {
-  return Object.fromEntries(Object.entries(moves).map(([name, m]) => [
-    name,
-    typeof m === 'function' ? { move: m, client: false } : { ...m, client: false },
-  ]));
+  return Object.fromEntries(Object.entries(moves).map(([name, m]) => {
+    const fn = typeof m === 'function' ? m : m.move;
+    return [name, {
+      client: false,
+      move: (context, ...args) => {
+        const res = fn(context, ...args);
+        if (res === INVALID_MOVE) return res;
+        if (context.G && context.G.stage === 'action') checkEdicts(context.G);
+        return res;
+      },
+    }];
+  }));
 }
 
 // 手番の席を返す：ラウンドごとに先頭を1つずつ進める（毎ラウンド手番順が変わる）
