@@ -1,0 +1,2 @@
+{ "label": "席順の有利不利（全員 貪欲・k3）", "mode": "lineup", "gpp": 25,
+  "lineup": [{ "arch": "greedy" }, { "arch": "greedy" }, { "arch": "greedy" }, { "arch": "greedy" }] }

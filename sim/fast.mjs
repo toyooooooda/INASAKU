@@ -2,11 +2,11 @@
 // ボットは1手ごとに数百通りの「もしこうしたら」を評価するので、
 // 盤面を軽い配列表現に落として1年分の水の流れを高速に回す。
 // 計算規則は engine.mjs の flowSeason / 収穫と一致させること（test.mjs で突き合わせ）。
-import { VARIETIES, VARIETY_NAMES, lastSeason } from './engine.mjs';
+import { VARIETY_NAMES, lastSeason, modsOf, needWith, bonusWith, resCapWith } from './engine.mjs';
 
 export function compact(g) {
   return {
-    N: g.N, P: g.P, weir: g.weir,
+    N: g.N, P: g.P, weir: g.weir, mods: modsOf(g),
     rivers: g.rivers.map((rv) => ({
       res: rv.reservoir ? rv.reservoir.owner : null,
       plots: rv.nodes.map((nd, p) => nd.plots.map((pl, k) => ({ owner: pl.owner, p, k, conn: pl.conn, v: null }))),
@@ -14,7 +14,7 @@ export function compact(g) {
   };
 }
 export function cloneCompact(cb) {
-  return { N: cb.N, P: cb.P, weir: cb.weir, rivers: cb.rivers.map((rv) => ({ res: rv.res, plots: rv.plots.map((row) => row.map((f) => ({ ...f }))) })) };
+  return { N: cb.N, P: cb.P, weir: cb.weir, mods: cb.mods.map((m) => ({ ...m })), rivers: cb.rivers.map((rv) => ({ res: rv.res, plots: rv.plots.map((row) => row.map((f) => ({ ...f }))) })) };
 }
 
 function drawersAt(rv, q) {
@@ -35,7 +35,7 @@ export function evalYear(cb, { typhoonExpected = true, rain = null } = {}) {
     const share = Math.floor(total / N);
     const supply = new Array(N).fill(share);
     let rem = total - share * N;
-    const needOf = (f) => (f.v ? (VARIETIES[f.v].need[s] ?? 0) : 0);
+    const needOf = (f) => (f.v ? needWith(f.v, s, cb.mods[f.owner]) : 0);
     if (cb.weir !== null) {
       const w = cb.weir;
       const ownNeed = cb.rivers.map((rv) => rv.plots.reduce((a, row) => a + row.reduce((b, f) => b + (f.owner === w ? needOf(f) : 0), 0), 0));
@@ -59,12 +59,12 @@ export function evalYear(cb, { typhoonExpected = true, rain = null } = {}) {
           const add = Math.min(lacks[i], stored[r]);
           stored[r] -= add; deficit[r][f.p][f.k] -= add;
         });
-        stored[r] = Math.min(P.reservoirCap, stored[r] + water);
+        stored[r] = Math.min(resCapWith(P, cb.mods[rv.res]), stored[r] + water);
       }
     });
     cb.rivers.forEach((rv, r) => rv.plots.forEach((row, p) => row.forEach((f) => {
       if (!f.v || f.owner === null || lastSeason(f.v) !== s) return;
-      let y = P.fertility[p] - deficit[r][p][f.k] + VARIETIES[f.v].bonus;
+      let y = P.fertility[p] - deficit[r][p][f.k] + bonusWith(f.v, cb.mods[f.owner]);
       if (f.v === '晩稲' && s === 2 && typhoonExpected) y -= P.typhoonChance * P.typhoonPenalty;
       yields[f.owner] += Math.max(0, y);
     })));
@@ -103,9 +103,12 @@ export function applyCompact(cb, pid, a) {
 }
 
 export const upkeepFields = (cb, pid) => cb.rivers.reduce((a, rv) => a + rv.plots[0].filter((f) => f.owner === pid).length, 0);
-export function landscapeOf(cb, pid, canalLen) {
-  const L = cb.P.landscape;
-  let fields = 0, res = 0;
-  cb.rivers.forEach((rv) => { rv.plots.forEach((row) => row.forEach((f) => { if (f.owner === pid) fields++; })); if (rv.res === pid) res++; });
-  return fields * L.field + canalLen * L.canalLen + res * L.reservoir + (cb.weir === pid ? L.weir : 0);
+// 建設で入る点（部品に印刷された点）。札「名主」は開墾ごとに+1
+export function buildPoints(cb, a, nanushi = false) {
+  const PR = cb.P.printed;
+  if (a.type === 'claim') return PR.field + (nanushi ? 1 : 0);
+  if (a.type === 'canal') return PR.canalLen * a.len;
+  if (a.type === 'reservoir') return PR.reservoir;
+  if (a.type === 'weir') return PR.weir;
+  return 0;
 }

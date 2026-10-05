@@ -1,19 +1,18 @@
 // ===== 自己対戦の実行と集計 =====
-// 使い方: node run.mjs [games] [jsonOut]
-import { createGame, currentPlayer, applyAction, runWinter, scoreOf } from './engine.mjs';
-import { decide, offerAmount, ARCHETYPES } from './bots.mjs';
-import { makeRng } from './engine.mjs';
-import { writeFileSync } from 'node:fs';
+import { createGame, currentPlayer, applyAction, runWinter, runPlantPhase, bestPlanting, scoreOf, makeRng, CARDS } from './engine.mjs';
+import { decide, offerAmount, strat } from './bots.mjs';
 
-export function playGame(archs, seed, params = {}) {
-  const g = createGame(archs.length, seed, params);
+// strats: 席ごとの方針 { arch, k }
+export function playGame(strats, seed, params = {}) {
+  const g = createGame(strats.length, seed, params);
   const rng = makeRng(seed * 104729 + 7);
   let guard = 0;
   while (!g.over) {
-    if (++guard > 10000) throw new Error('stuck');
-    if (g.stage === 'winter') { runWinter(g, (pid) => offerAmount(g, pid, archs[pid])); continue; }
+    if (++guard > 20000) throw new Error('stuck');
+    if (g.stage === 'winter') { runWinter(g, (pid) => offerAmount(g, pid, strats[pid])); continue; }
+    if (g.stage === 'plant') { runPlantPhase(g, (pid) => bestPlanting(g, pid, Infinity)); continue; }
     const pid = currentPlayer(g);
-    applyAction(g, pid, decide(g, pid, archs[pid], rng));
+    applyAction(g, pid, decide(g, pid, strats[pid], rng));
   }
   const scores = g.players.map((_, i) => scoreOf(g, i));
   const top = Math.max(...scores.map((s) => s.total));
@@ -26,51 +25,77 @@ function permutations(arr) {
   return arr.flatMap((x, i) => permutations([...arr.slice(0, i), ...arr.slice(i + 1)]).map((p) => [x, ...p]));
 }
 
-// 実験：ラインナップを全席順で回し、勝ち筋ごと・席ごとに集計
-export function experiment(label, lineup, gamesPerPerm, params = {}, seedBase = 1) {
-  const perms = permutations(lineup);
-  const byArch = {}, bySeat = lineup.map(() => ({ wins: 0, games: 0 }));
-  const actionTotals = {};
-  const pos = { yieldPos: [0, 0, 0], countPos: [0, 0, 0], deficitPos: [0, 0, 0], variety: {} };
-  let games = 0, seed = seedBase;
-  for (const perm of perms) for (let i = 0; i < gamesPerPerm; i++) {
-    const { g, scores, winners } = playGame(perm, seed++, params);
-    games++;
-    perm.forEach((arch, seat) => {
-      const A = byArch[arch] || (byArch[arch] = { n: 0, wins: 0, total: 0, offered: 0, landscape: 0, debt: 0, fields: 0, canalLen: 0, reservoirs: 0, weir: 0, actions: {} });
-      const s = scores[seat];
-      A.n++; A.total += s.total; A.offered += s.offered; A.landscape += s.landscape; A.debt += s.debt;
-      A.fields += s.fields; A.canalLen += s.canalLen; A.reservoirs += s.reservoirs; A.weir += s.weir ? 1 : 0;
-      if (winners.includes(seat)) { A.wins += 1 / winners.length; bySeat[seat].wins += 1 / winners.length; }
-      bySeat[seat].games++;
-      Object.entries(g.players[seat].actions).forEach(([k, v]) => { A.actions[k] = (A.actions[k] || 0) + v; actionTotals[k] = (actionTotals[k] || 0) + v; });
-    });
-    if (g.stats) for (let p = 0; p < 3; p++) { pos.yieldPos[p] += g.stats.yieldPos[p]; pos.countPos[p] += g.stats.countPos[p]; pos.deficitPos[p] += g.stats.deficitPos[p]; }
-    if (g.stats) Object.entries(g.stats.variety).forEach(([k, v]) => { pos.variety[k] = (pos.variety[k] || 0) + v; });
-  }
-  const archRows = Object.entries(byArch).map(([k, A]) => ({
-    arch: k, name: ARCHETYPES[k].name, winRate: A.wins / A.n, avgScore: A.total / A.n,
-    offered: A.offered / A.n, landscape: A.landscape / A.n, debt: A.debt / A.n,
-    fields: A.fields / A.n, canalLen: A.canalLen / A.n, reservoirs: A.reservoirs / A.n, weirRate: A.weir / A.n,
-    actionsPerGame: Object.fromEntries(Object.entries(A.actions).map(([a, v]) => [a, v / A.n])),
-  }));
-  const seatRows = bySeat.map((s, i) => ({ seat: i + 1, winRate: s.wins / s.games }));
-  const totalActs = Object.values(actionTotals).reduce((a, b) => a + b, 0);
+// 集計器：キー（方針・札など）ごとに 勝ち・点・内訳 を数える
+function tally() {
+  const rows = {};
   return {
-    label, games, lineup, archRows, seatRows,
-    actionShare: Object.fromEntries(Object.entries(actionTotals).map(([k, v]) => [k, v / totalActs])),
-    avgYieldByPos: pos.yieldPos.map((y, p) => y / Math.max(1, pos.countPos[p])),
-    avgDeficitByPos: pos.deficitPos.map((d, p) => d / Math.max(1, pos.countPos[p])),
-    harvestsByPos: pos.countPos.map((c) => c / games),
-    varietyShare: (() => { const t = Object.values(pos.variety).reduce((a, b) => a + b, 0); return Object.fromEntries(Object.entries(pos.variety).map(([k, v]) => [k, v / t])); })(),
+    add(key, s, win) {
+      const R = rows[key] || (rows[key] = { n: 0, wins: 0, total: 0, offer: 0, build: 0, set: 0, debt: 0, fields: 0, canalLen: 0, cards: 0 });
+      R.n++; R.wins += win; R.total += s.total; R.offer += s.offer; R.build += s.build; R.set += s.set; R.debt += s.debt;
+      R.fields += s.fields; R.canalLen += s.canalLen; R.cards += s.cards.length;
+    },
+    rows: () => Object.fromEntries(Object.entries(rows).map(([k, R]) => [k, {
+      n: R.n, win: R.wins / R.n, score: R.total / R.n, offer: R.offer / R.n, build: R.build / R.n, set: R.set / R.n,
+      debt: R.debt / R.n, fields: R.fields / R.n, canalLen: R.canalLen / R.n, cards: R.cards / R.n,
+    }])),
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const n = Number(process.argv[2] || 2);
-  const t0 = Date.now();
-  const r = experiment('smoke', ['upstream', 'downstream', 'network', 'greedy'], n);
-  console.log(JSON.stringify(r, null, 1));
-  console.log('sec', (Date.now() - t0) / 1000);
-  if (process.argv[3]) writeFileSync(process.argv[3], JSON.stringify(r, null, 1));
+// mode 'lineup'：決まった顔ぶれを全席順で回す（勝ち筋の比較・席順の確認）
+// mode 'random'：毎局、席ごとに勝ち筋と献上開始年kをランダムに選ぶ（k の山の形・札の強さの確認）
+export function runExperiment(cfg) {
+  const params = cfg.params || {};
+  const byStrat = tally(), byArch = tally(), byK = tally(), byCard = tally(), noCard = tally();
+  const seat = [];
+  const acts = {};
+  const pos = { y: [0, 0, 0], c: [0, 0, 0], d: [0, 0, 0], v: {} };
+  let games = 0, seed = cfg.seed || 1;
+
+  const record = (strats, res) => {
+    games++;
+    const { g, scores, winners } = res;
+    strats.forEach((s, i) => {
+      const w = winners.includes(i) ? 1 / winners.length : 0;
+      byStrat.add(`${s.arch}/k${s.k}`, scores[i], w);
+      byArch.add(s.arch, scores[i], w);
+      byK.add(`k${s.k}`, scores[i], w);
+      CARDS.forEach((c) => (scores[i].cards.includes(c.id) ? byCard : noCard).add(c.id, scores[i], w));
+      (seat[i] || (seat[i] = { w: 0, n: 0 })); seat[i].w += w; seat[i].n++;
+      Object.entries(g.players[i].actions).forEach(([a, v]) => { acts[a] = (acts[a] || 0) + v; });
+    });
+    if (g.stats) for (let p = 0; p < 3; p++) { pos.y[p] += g.stats.yieldPos[p]; pos.c[p] += g.stats.countPos[p]; pos.d[p] += g.stats.deficitPos[p]; }
+    if (g.stats) Object.entries(g.stats.variety).forEach(([k, v]) => { pos.v[k] = (pos.v[k] || 0) + v; });
+  };
+
+  if (cfg.mode === 'random') {
+    const n = cfg.players || 4;
+    const archs = cfg.archs || ['greedy', 'upstream', 'downstream', 'network', 'cards'];
+    const ks = cfg.ks || [1, 2, 3, 4, 5];
+    const rng = makeRng((cfg.seed || 1) * 31337);
+    for (let i = 0; i < (cfg.games || 200); i++) {
+      const strats = Array.from({ length: n }, () => strat(archs[Math.floor(rng() * archs.length)], ks[Math.floor(rng() * ks.length)]));
+      record(strats, playGame(strats, seed++, params));
+    }
+  } else {
+    const lineup = (cfg.lineup || [{ arch: 'upstream' }, { arch: 'downstream' }, { arch: 'network' }, { arch: 'cards' }]).map((s) => strat(s.arch, s.k));
+    for (const perm of permutations(lineup)) for (let i = 0; i < (cfg.gpp || 1); i++) record(perm, playGame(perm, seed++, params));
+  }
+
+  const tot = Object.values(acts).reduce((a, b) => a + b, 0);
+  const vt = Object.values(pos.v).reduce((a, b) => a + b, 0);
+  const cardRows = byCard.rows(), noCardRows = noCard.rows();
+  return {
+    label: cfg.label, games,
+    strategies: byStrat.rows(), archetypes: byArch.rows(), offerStartYear: byK.rows(),
+    cards: Object.fromEntries(CARDS.map((c) => [c.id, {
+      name: c.name, tag: c.tag,
+      takenPerGame: (cardRows[c.id]?.n || 0) / games,
+      winWith: cardRows[c.id]?.win ?? null, winWithout: noCardRows[c.id]?.win ?? null,
+    }])),
+    seatWin: seat.map((s) => s.w / s.n),
+    actionShare: Object.fromEntries(Object.entries(acts).map(([k, v]) => [k, v / tot])),
+    yieldByPos: pos.y.map((y, p) => y / Math.max(1, pos.c[p])),
+    deficitByPos: pos.d.map((d, p) => d / Math.max(1, pos.c[p])),
+    varietyShare: Object.fromEntries(Object.entries(pos.v).map(([k, v]) => [k, v / vt])),
+  };
 }
